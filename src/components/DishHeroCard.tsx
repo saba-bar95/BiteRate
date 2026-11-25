@@ -1,6 +1,6 @@
-import { Flame, UtensilsCrossed, Users } from 'lucide-react'
-import type { DishPurchasingPower } from '@shared/types'
-import { formatMoney, formatNumber } from '../lib/format'
+import { Flame, UtensilsCrossed, Users } from "lucide-react";
+import type { DishPurchasingPower } from "@shared/types";
+import { formatMoney, formatNumber } from "../lib/format";
 
 export function DishHeroCard({
   cityName,
@@ -11,28 +11,28 @@ export function DishHeroCard({
   dish,
   alsoTry,
 }: {
-  cityName: string
-  currencyCode: string
-  dishCurrencyCode: string
-  budget: number
-  budgetMode: 'flat' | 'hourly'
-  dish: DishPurchasingPower | null
-  alsoTry?: { name: string; wikiSlug: string } | null
+  cityName: string;
+  currencyCode: string;
+  dishCurrencyCode: string;
+  budget: number;
+  budgetMode: "flat" | "hourly";
+  dish: DishPurchasingPower | null;
+  alsoTry?: { name: string; wikiSlug: string } | null;
 }) {
   if (!dish) {
     return (
       <section className="bento p-6 text-sm text-muted">
         Signature dish data unavailable.
       </section>
-    )
+    );
   }
 
   const budgetLabel =
-    budgetMode === 'hourly'
+    budgetMode === "hourly"
       ? `${formatMoney(budget, currencyCode)}/hr`
-      : formatMoney(budget, currencyCode)
+      : formatMoney(budget, currencyCode);
 
-  const meter = Math.min(100, Math.round((dish.visitorPortions / 40) * 100))
+  const meter = Math.min(100, Math.round((dish.visitorPortions / 40) * 100));
 
   return (
     <section className="bento fade-in-delay p-5 sm:p-6">
@@ -44,7 +44,7 @@ export function DishHeroCard({
               {dish.dishName}
             </h2>
             <p className="mt-1 text-sm text-muted">
-              {cityName} · {dish.unitLabel} ·{' '}
+              {cityName} · {dish.unitLabel} ·{" "}
               <span className="tabular">
                 {formatMoney(dish.localPrice, dishCurrencyCode)}
               </span>
@@ -81,15 +81,15 @@ export function DishHeroCard({
               Visitor purchasing power
             </div>
             <p className="mt-3 text-sm leading-relaxed text-ink">
-              Your {budgetLabel} buys{' '}
+              Your {budgetLabel} buys{" "}
               <span className="font-semibold tabular text-emerald">
                 ~{formatNumber(dish.visitorUnitsApprox, 2)}
-              </span>{' '}
+              </span>{" "}
               {dish.unitLabel}
-              {dish.visitorUnitsApprox === 1 ? '' : 's'}
-              {dish.dishName.toLowerCase().includes('khinkali')
+              {dish.visitorUnitsApprox === 1 ? "" : "s"}
+              {dish.dishName.toLowerCase().includes("khinkali")
                 ? ` (~${formatNumber(dish.visitorUnitsApprox * 10, 2)} pieces)`
-                : ''}
+                : ""}
               .
             </p>
             <div className="mt-4">
@@ -114,12 +114,12 @@ export function DishHeroCard({
               Local reality check
             </div>
             <p className="mt-3 text-sm leading-relaxed text-ink">
-              An average local monthly wage here buys{' '}
+              An average local monthly wage here buys{" "}
               <span className="font-semibold tabular text-amber">
                 ~{formatNumber(dish.localWagePortions, 2)}
-              </span>{' '}
-              {dish.dishName.toLowerCase().includes('khinkali')
-                ? 'Khinkali plates'
+              </span>{" "}
+              {dish.dishName.toLowerCase().includes("khinkali")
+                ? "Khinkali plates"
                 : `${dish.unitLabel}s`}
               .
             </p>
@@ -135,7 +135,7 @@ export function DishHeroCard({
             {dish.wiki.extract}
             {dish.wiki.pageUrl && (
               <>
-                {' '}
+                {" "}
                 <a
                   href={dish.wiki.pageUrl}
                   target="_blank"
@@ -150,5 +150,5 @@ export function DishHeroCard({
         )}
       </div>
     </section>
-  )
+  );
 }

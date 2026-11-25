@@ -6,4 +6,4 @@ export {
   filterCities,
   getCity,
   listCities,
-} from '../shared/cities.ts'
+} from "../shared/cities.ts";

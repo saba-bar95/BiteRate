@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Search } from 'lucide-react'
-import type { PurchasingPowerScore } from '@shared/types'
-import { formatMoney, formatNumber, formatPct } from '../lib/format'
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, Search } from "lucide-react";
+import type { PurchasingPowerScore } from "@shared/types";
+import { formatMoney, formatNumber, formatPct } from "../lib/format";
 
-type SortKey = 'score' | 'fxGain30d' | 'dishValueUsd'
+type SortKey = "score" | "fxGain30d" | "dishValueUsd";
 
-const PAGE_SIZE = 18
+const PAGE_SIZE = 18;
 
 export function Leaderboard({
   rows,
@@ -14,80 +14,82 @@ export function Leaderboard({
   cityCount,
   countryCount,
 }: {
-  rows: PurchasingPowerScore[]
-  activeSlug: string
-  onSelect: (slug: string) => void
-  cityCount?: number
-  countryCount?: number
+  rows: PurchasingPowerScore[];
+  activeSlug: string;
+  onSelect: (slug: string) => void;
+  cityCount?: number;
+  countryCount?: number;
 }) {
-  const [query, setQuery] = useState('')
-  const [country, setCountry] = useState('all')
-  const [sortKey, setSortKey] = useState<SortKey>('score')
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [query, setQuery] = useState("");
+  const [country, setCountry] = useState("all");
+  const [sortKey, setSortKey] = useState<SortKey>("score");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const countries = useMemo(
     () => [...new Set(rows.map((r) => r.country))].sort(),
     [rows],
-  )
+  );
 
   const globalRank = useMemo(() => {
-    const sorted = [...rows].sort((a, b) => b.score - a.score)
-    const map = new Map<string, number>()
-    sorted.forEach((row, i) => map.set(row.slug, i + 1))
-    return map
-  }, [rows])
+    const sorted = [...rows].sort((a, b) => b.score - a.score);
+    const map = new Map<string, number>();
+    sorted.forEach((row, i) => map.set(row.slug, i + 1));
+    return map;
+  }, [rows]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = query.trim().toLowerCase();
     const list = rows.filter((row) => {
-      if (country !== 'all' && row.country !== country) return false
-      if (!q) return true
+      if (country !== "all" && row.country !== country) return false;
+      if (!q) return true;
       return (
         row.name.toLowerCase().includes(q) ||
         row.country.toLowerCase().includes(q) ||
         row.currencyCode.toLowerCase().includes(q)
-      )
-    })
+      );
+    });
     return [...list].sort((a, b) => {
-      const av = a[sortKey]
-      const bv = b[sortKey]
-      if (av == null && bv == null) return 0
-      if (av == null) return 1
-      if (bv == null) return -1
-      if (sortKey === 'dishValueUsd') return av - bv
-      return bv - av
-    })
-  }, [rows, query, country, sortKey])
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (sortKey === "dishValueUsd") return av - bv;
+      return bv - av;
+    });
+  }, [rows, query, country, sortKey]);
 
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE)
-  }, [query, country, sortKey, rows])
+    setVisibleCount(PAGE_SIZE);
+  }, [query, country, sortKey, rows]);
 
-  const visible = filtered.slice(0, visibleCount)
-  const remaining = Math.max(0, filtered.length - visibleCount)
-  const nextBatch = Math.min(PAGE_SIZE, remaining)
+  const visible = filtered.slice(0, visibleCount);
+  const remaining = Math.max(0, filtered.length - visibleCount);
+  const nextBatch = Math.min(PAGE_SIZE, remaining);
 
   return (
     <section className="bento fade-in p-5 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="eyebrow">Global explorer</p>
-          <h2 className="display mt-1 text-2xl">Purchasing power leaderboard</h2>
+          <h2 className="display mt-1 text-2xl">
+            Purchasing power leaderboard
+          </h2>
           <p className="mt-1 text-sm text-muted">
             {cityCount ?? rows.length} cities
-            {countryCount != null ? ` · ${countryCount} countries` : ''}
-            {' · '}
+            {countryCount != null ? ` · ${countryCount} countries` : ""}
+            {" · "}
             showing {visible.length}
-            {filtered.length !== visible.length ? ` of ${filtered.length}` : ''}
+            {filtered.length !== visible.length ? ` of ${filtered.length}` : ""}
             . Multiple cities per country included.
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {(
             [
-              ['score', 'PP Score'],
-              ['fxGain30d', '30D FX'],
-              ['dishValueUsd', 'Dish Value'],
+              ["score", "PP Score"],
+              ["fxGain30d", "30D FX"],
+              ["dishValueUsd", "Dish Value"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -96,8 +98,8 @@ export function Leaderboard({
               onClick={() => setSortKey(key)}
               className={`cursor-pointer rounded-md border px-3 py-2 text-sm transition ${
                 sortKey === key
-                  ? 'border-white/15 bg-white/8 text-ink'
-                  : 'border-white/8 text-muted hover:text-ink'
+                  ? "border-white/15 bg-white/8 text-ink"
+                  : "border-white/8 text-muted hover:text-ink"
               }`}
             >
               {label}
@@ -132,8 +134,8 @@ export function Leaderboard({
 
       <div className="mt-5 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
         {visible.map((row) => {
-          const active = row.slug === activeSlug
-          const rank = globalRank.get(row.slug) ?? 0
+          const active = row.slug === activeSlug;
+          const rank = globalRank.get(row.slug) ?? 0;
           return (
             <button
               key={row.slug}
@@ -141,8 +143,8 @@ export function Leaderboard({
               onClick={() => onSelect(row.slug)}
               className={`cursor-pointer rounded-md border p-4 text-left transition hover:border-white/18 ${
                 active
-                  ? 'border-emerald/35 bg-emerald/8'
-                  : 'border-white/8 bg-obsidian/35'
+                  ? "border-emerald/35 bg-emerald/8"
+                  : "border-white/8 bg-obsidian/35"
               }`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -165,7 +167,7 @@ export function Leaderboard({
                   <div className="text-muted">30D FX</div>
                   <div
                     className={`tabular ${
-                      (row.fxGain30d ?? 0) <= 0 ? 'text-emerald' : 'text-coral'
+                      (row.fxGain30d ?? 0) <= 0 ? "text-emerald" : "text-coral"
                     }`}
                   >
                     {formatPct(row.fxGain30d)}
@@ -174,22 +176,24 @@ export function Leaderboard({
                 <div>
                   <div className="text-muted">Dish USD</div>
                   <div className="tabular">
-                    {formatMoney(row.dishValueUsd, 'USD')}
+                    {formatMoney(row.dishValueUsd, "USD")}
                   </div>
                 </div>
                 <div>
                   <div className="text-muted">Salary USD</div>
                   <div className="tabular">
-                    {formatMoney(row.salaryUsd, 'USD')}
+                    {formatMoney(row.salaryUsd, "USD")}
                   </div>
                 </div>
                 <div>
                   <div className="text-muted">Rent USD</div>
-                  <div className="tabular">{formatMoney(row.rentUsd, 'USD')}</div>
+                  <div className="tabular">
+                    {formatMoney(row.rentUsd, "USD")}
+                  </div>
                 </div>
               </div>
             </button>
-          )
+          );
         })}
       </div>
 
@@ -207,5 +211,5 @@ export function Leaderboard({
         </div>
       )}
     </section>
-  )
+  );
 }

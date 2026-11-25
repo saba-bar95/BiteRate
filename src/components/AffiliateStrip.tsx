@@ -1,6 +1,6 @@
-import { ArrowUpRight, CreditCard } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { formatMoney, formatNumber } from '../lib/format'
+import { ArrowUpRight, CreditCard } from "lucide-react";
+import { Link } from "react-router-dom";
+import { formatMoney, formatNumber } from "../lib/format";
 
 export function AffiliateStrip({
   currency,
@@ -10,14 +10,14 @@ export function AffiliateStrip({
   savings,
   savingsPct,
 }: {
-  currency: string
-  budget: number
-  bankFee: number
-  multiFee: number
-  savings: number
-  savingsPct: number
+  currency: string;
+  budget: number;
+  bankFee: number;
+  multiFee: number;
+  savings: number;
+  savingsPct: number;
 }) {
-  const spendTo = `/spend?amount=${encodeURIComponent(String(budget))}&currency=${encodeURIComponent(currency)}`
+  const spendTo = `/spend?amount=${encodeURIComponent(String(budget))}&currency=${encodeURIComponent(currency)}`;
 
   return (
     <section className="bento fade-in flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -31,12 +31,14 @@ export function AffiliateStrip({
             Keep more of your {formatMoney(budget, currency)} abroad
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Banks often take ~3% on FX. A multi-currency card at ~0.5% could save about{' '}
+            Banks often take ~3% on FX. A multi-currency card at ~0.5% could
+            save about{" "}
             <span className="tabular text-emerald">
               {formatMoney(savings, currency)}
-            </span>{' '}
-            ({formatNumber(savingsPct, 2)}%) — bank fee {formatMoney(bankFee, currency)} vs card
-            fee {formatMoney(multiFee, currency)}.
+            </span>{" "}
+            ({formatNumber(savingsPct, 2)}%) — bank fee{" "}
+            {formatMoney(bankFee, currency)} vs card fee{" "}
+            {formatMoney(multiFee, currency)}.
           </p>
         </div>
       </div>
@@ -48,5 +50,5 @@ export function AffiliateStrip({
         <ArrowUpRight className="h-4 w-4" />
       </Link>
     </section>
-  )
+  );
 }

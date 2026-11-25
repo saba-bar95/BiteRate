@@ -1,4 +1,4 @@
-import type { CityCatalogItem } from '../lib/api'
+import type { CityCatalogItem } from "../lib/api";
 
 export function CitySelect({
   label,
@@ -7,11 +7,11 @@ export function CitySelect({
   onChange,
   disabled,
 }: {
-  label: string
-  value: string
-  cities: CityCatalogItem[]
-  onChange: (slug: string) => void
-  disabled?: boolean
+  label: string;
+  value: string;
+  cities: CityCatalogItem[];
+  onChange: (slug: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <label className="text-sm text-muted">
@@ -29,5 +29,5 @@ export function CitySelect({
         ))}
       </select>
     </label>
-  )
+  );
 }

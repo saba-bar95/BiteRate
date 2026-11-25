@@ -12,5 +12,5 @@ export function LoadingSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }

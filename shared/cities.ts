@@ -1,4 +1,4 @@
-import type { City } from './types.ts'
+import type { City } from "./types.ts";
 
 /**
  * Curated global city seed (100+). Multiple cities per country are intentional.
@@ -2885,49 +2885,52 @@ export const CITIES: City[] = [
       avgMonthlyNetSalary: 1200,
     },
   },
-]
+];
 
 export const CITY_BY_SLUG = Object.fromEntries(
   CITIES.map((city) => [city.slug, city]),
-) as Record<string, City>
+) as Record<string, City>;
 
 export function getCity(slug: string): City | undefined {
-  return CITY_BY_SLUG[slug.toLowerCase()]
+  return CITY_BY_SLUG[slug.toLowerCase()];
 }
 
 export function listCities(): City[] {
-  return CITIES
+  return CITIES;
 }
 
-export function filterCities(opts: {
-  q?: string
-  country?: string
-  currency?: string
-  iso2?: string
-} = {}): City[] {
-  const q = opts.q?.trim().toLowerCase()
-  const country = opts.country?.trim().toLowerCase()
-  const currency = opts.currency?.trim().toUpperCase()
-  const iso2 = opts.iso2?.trim().toUpperCase()
+export function filterCities(
+  opts: {
+    q?: string;
+    country?: string;
+    currency?: string;
+    iso2?: string;
+  } = {},
+): City[] {
+  const q = opts.q?.trim().toLowerCase();
+  const country = opts.country?.trim().toLowerCase();
+  const currency = opts.currency?.trim().toUpperCase();
+  const iso2 = opts.iso2?.trim().toUpperCase();
 
   return CITIES.filter((city) => {
-    if (currency && city.currencyCode !== currency) return false
-    if (iso2 && city.iso2 !== iso2) return false
-    if (country && !city.country.toLowerCase().includes(country)) return false
+    if (currency && city.currencyCode !== currency) return false;
+    if (iso2 && city.iso2 !== iso2) return false;
+    if (country && !city.country.toLowerCase().includes(country)) return false;
     if (q) {
-      const hay = `${city.name} ${city.country} ${city.slug} ${city.currencyCode} ${city.signatureDish.name}`.toLowerCase()
-      if (!hay.includes(q)) return false
+      const hay =
+        `${city.name} ${city.country} ${city.slug} ${city.currencyCode} ${city.signatureDish.name}`.toLowerCase();
+      if (!hay.includes(q)) return false;
     }
-    return true
-  })
+    return true;
+  });
 }
 
 export function cityStats() {
-  const countries = new Set(CITIES.map((c) => c.country))
-  const currencies = new Set(CITIES.map((c) => c.currencyCode))
+  const countries = new Set(CITIES.map((c) => c.country));
+  const currencies = new Set(CITIES.map((c) => c.currencyCode));
   return {
     cityCount: CITIES.length,
     countryCount: countries.size,
     currencyCount: currencies.size,
-  }
+  };
 }

@@ -1,14 +1,14 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
-import { LoadingSpinner } from './LoadingSpinner'
+import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { LoadingSpinner } from "./LoadingSpinner";
 
 export function PrimaryButton({
   loading,
   children,
-  className = '',
+  className = "",
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
-  loading?: boolean
-  children: ReactNode
+  loading?: boolean;
+  children: ReactNode;
 }) {
   return (
     <button
@@ -19,5 +19,5 @@ export function PrimaryButton({
       {loading ? <LoadingSpinner size="sm" /> : null}
       {children}
     </button>
-  )
+  );
 }

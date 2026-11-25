@@ -1,7 +1,7 @@
-import { TrendingDown, TrendingUp } from 'lucide-react'
-import type { BasketItem, FxQuote } from '@shared/types'
-import { basketDeltaClass, formatMoney, formatPct } from '../lib/format'
-import { Sparkline } from './Sparkline'
+import { TrendingDown, TrendingUp } from "lucide-react";
+import type { BasketItem, FxQuote } from "@shared/types";
+import { basketDeltaClass, formatMoney, formatPct } from "../lib/format";
+import { Sparkline } from "./Sparkline";
 
 export function BasketCard({
   fromName,
@@ -10,14 +10,14 @@ export function BasketCard({
   basket,
   fx,
 }: {
-  fromName: string
-  toName: string
-  homeCurrency: string
-  basket: BasketItem[]
-  fx: FxQuote | null
+  fromName: string;
+  toName: string;
+  homeCurrency: string;
+  basket: BasketItem[];
+  fx: FxQuote | null;
 }) {
-  const change = fx?.change30dPct ?? 0
-  const cheaper = change <= 0
+  const change = fx?.change30dPct ?? 0;
+  const cheaper = change <= 0;
 
   return (
     <section className="bento fade-in flex flex-col gap-5 p-5 sm:p-6">
@@ -27,13 +27,15 @@ export function BasketCard({
           <h2 className="display mt-1 text-2xl">
             {fromName} <span className="text-muted">vs</span> {toName}
           </h2>
-          <p className="mt-1 text-sm text-muted">Standardized costs in your home currency</p>
+          <p className="mt-1 text-sm text-muted">
+            Standardized costs in your home currency
+          </p>
         </div>
         <div className="surface px-3 py-2 text-right">
           <div className="text-xs text-muted">30-day FX shift</div>
           <div
             className={`mt-0.5 flex items-center justify-end gap-1 text-sm font-medium tabular ${
-              cheaper ? 'text-emerald' : 'text-coral'
+              cheaper ? "text-emerald" : "text-coral"
             }`}
           >
             {cheaper ? (
@@ -51,9 +53,11 @@ export function BasketCard({
           <span className="tabular">
             {fx
               ? `1 ${fx.from} = ${fx.rate.toFixed(2)} ${fx.to}`
-              : 'FX unavailable'}
+              : "FX unavailable"}
           </span>
-          <span>{fx?.provider === 'fawaz' ? 'Fallback FX' : 'Frankfurter'}</span>
+          <span>
+            {fx?.provider === "fawaz" ? "Fallback FX" : "Frankfurter"}
+          </span>
         </div>
         <Sparkline data={fx?.history30d ?? []} positive={cheaper} />
       </div>
@@ -79,7 +83,10 @@ export function BasketCard({
           <tbody>
             {basket.map((item) => {
               return (
-                <tr key={item.key} className="border-b border-white/5 last:border-0">
+                <tr
+                  key={item.key}
+                  className="border-b border-white/5 last:border-0"
+                >
                   <td className="py-3 pr-3 text-ink">{item.label}</td>
                   <td className="py-3 pr-3 tabular text-muted">
                     {formatMoney(item.fromInHomeCurrency, homeCurrency)}
@@ -95,20 +102,20 @@ export function BasketCard({
                   >
                     <span className="sr-only">
                       {item.deltaPct < 0
-                        ? 'Lower in home city'
+                        ? "Lower in home city"
                         : item.deltaPct > 0
-                          ? 'Higher in home city'
-                          : 'Same'}
-                      :{' '}
+                          ? "Higher in home city"
+                          : "Same"}
+                      :{" "}
                     </span>
                     {formatPct(item.deltaPct)}
                   </td>
                 </tr>
-              )
+              );
             })}
           </tbody>
         </table>
       </div>
     </section>
-  )
+  );
 }

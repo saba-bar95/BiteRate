@@ -12,7 +12,9 @@
   --color-muted: #9a968c;
   --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
-  --font-display: "Bricolage Grotesque", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    "Bricolage Grotesque", "Instrument Sans", ui-sans-serif, system-ui,
+    sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
@@ -34,7 +36,11 @@
     background-color: var(--color-obsidian);
     background-image:
       linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 28%),
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(61, 155, 120, 0.07), transparent 55%);
+      radial-gradient(
+        ellipse 80% 50% at 50% -20%,
+        rgba(61, 155, 120, 0.07),
+        transparent 55%
+      );
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -70,7 +76,7 @@
   button:not(:disabled),
   select:not(:disabled),
   a[href],
-  [role='button'],
+  [role="button"],
   summary {
     cursor: pointer;
   }

@@ -1,42 +1,42 @@
-import { Suspense, lazy } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
-import { AppShell } from './components/AppShell'
-import { LoadingSpinner } from './components/LoadingSpinner'
+import { Suspense, lazy } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AppShell } from "./components/AppShell";
+import { LoadingSpinner } from "./components/LoadingSpinner";
 
 const HomePage = lazy(() =>
-  import('./pages/HomePage').then((m) => ({ default: m.HomePage })),
-)
+  import("./pages/HomePage").then((m) => ({ default: m.HomePage })),
+);
 const CityPage = lazy(() =>
-  import('./pages/CityPage').then((m) => ({ default: m.CityPage })),
-)
+  import("./pages/CityPage").then((m) => ({ default: m.CityPage })),
+);
 const TripPage = lazy(() =>
-  import('./pages/TripPage').then((m) => ({ default: m.TripPage })),
-)
+  import("./pages/TripPage").then((m) => ({ default: m.TripPage })),
+);
 const EquivalentPage = lazy(() =>
-  import('./pages/EquivalentPage').then((m) => ({ default: m.EquivalentPage })),
-)
+  import("./pages/EquivalentPage").then((m) => ({ default: m.EquivalentPage })),
+);
 const StoryPage = lazy(() =>
-  import('./pages/StoryPage').then((m) => ({ default: m.StoryPage })),
-)
+  import("./pages/StoryPage").then((m) => ({ default: m.StoryPage })),
+);
 const MapPage = lazy(() =>
-  import('./pages/MapPage').then((m) => ({ default: m.MapPage })),
-)
+  import("./pages/MapPage").then((m) => ({ default: m.MapPage })),
+);
 const SpendPage = lazy(() =>
-  import('./pages/SpendPage').then((m) => ({ default: m.SpendPage })),
-)
+  import("./pages/SpendPage").then((m) => ({ default: m.SpendPage })),
+);
 const SavedPage = lazy(() =>
-  import('./pages/SavedPage').then((m) => ({ default: m.SavedPage })),
-)
+  import("./pages/SavedPage").then((m) => ({ default: m.SavedPage })),
+);
 const AlertsPage = lazy(() =>
-  import('./pages/AlertsPage').then((m) => ({ default: m.AlertsPage })),
-)
+  import("./pages/AlertsPage").then((m) => ({ default: m.AlertsPage })),
+);
 
 function PageFallback() {
   return (
     <div className="flex min-h-[40vh] items-center justify-center gap-2 text-sm text-muted">
       <LoadingSpinner /> Loading…
     </div>
-  )
+  );
 }
 
 export default function App() {
@@ -45,7 +45,9 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route
           path="/"
-          element={<Navigate to="/compare/new-york-vs-tbilisi?budget=100" replace />}
+          element={
+            <Navigate to="/compare/new-york-vs-tbilisi?budget=100" replace />
+          }
         />
         <Route
           path="/compare/:compare"
@@ -121,9 +123,11 @@ export default function App() {
         />
         <Route
           path="*"
-          element={<Navigate to="/compare/new-york-vs-tbilisi?budget=100" replace />}
+          element={
+            <Navigate to="/compare/new-york-vs-tbilisi?budget=100" replace />
+          }
         />
       </Route>
     </Routes>
-  )
+  );
 }

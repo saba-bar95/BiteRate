@@ -1,5 +1,5 @@
 export function Toast({ message }: { message: string | null }) {
-  if (!message) return null
+  if (!message) return null;
   return (
     <div
       role="status"
@@ -8,5 +8,5 @@ export function Toast({ message }: { message: string | null }) {
     >
       {message}
     </div>
-  )
+  );
 }

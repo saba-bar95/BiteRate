@@ -1,17 +1,11 @@
-import { Clock3, Landmark, Languages } from 'lucide-react'
-import type { CityPulse } from '@shared/types'
-import { formatCompact, formatNumber } from '../lib/format'
-import { weatherIcon } from '../lib/weatherIcon'
+import { Clock3, Landmark, Languages } from "lucide-react";
+import type { CityPulse } from "@shared/types";
+import { formatCompact, formatNumber } from "../lib/format";
+import { weatherIcon } from "../lib/weatherIcon";
 
-function PulseTile({
-  pulse,
-  label,
-}: {
-  pulse: CityPulse
-  label: string
-}) {
-  const { city, weather, country, macro, localTime } = pulse
-  const WeatherIcon = weather ? weatherIcon(weather.weatherCode) : null
+function PulseTile({ pulse, label }: { pulse: CityPulse; label: string }) {
+  const { city, weather, country, macro, localTime } = pulse;
+  const WeatherIcon = weather ? weatherIcon(weather.weatherCode) : null;
 
   return (
     <div className="surface p-4">
@@ -19,12 +13,12 @@ function PulseTile({
         <div>
           <p className="eyebrow">{label}</p>
           <h3 className="display mt-1 text-xl">
-            {country?.flagEmoji ? `${country.flagEmoji} ` : ''}
+            {country?.flagEmoji ? `${country.flagEmoji} ` : ""}
             {city.name}
           </h3>
           <p className="text-sm text-muted">
             {city.country}
-            {country?.capital ? ` · ${country.capital}` : ''}
+            {country?.capital ? ` · ${country.capital}` : ""}
           </p>
         </div>
         {country?.flagPng && (
@@ -55,7 +49,7 @@ function PulseTile({
             <div className="tabular">
               {weather
                 ? `${formatNumber(weather.temperatureC, 1)}°C · ${weather.description}`
-                : '—'}
+                : "—"}
             </div>
           </div>
         </div>
@@ -64,7 +58,7 @@ function PulseTile({
           <div>
             <div className="text-xs text-muted">Languages</div>
             <div className="line-clamp-2">
-              {country?.languages?.length ? country.languages.join(', ') : '—'}
+              {country?.languages?.length ? country.languages.join(", ") : "—"}
             </div>
           </div>
         </div>
@@ -74,8 +68,8 @@ function PulseTile({
             <div className="text-xs text-muted">GDP / capita</div>
             <div className="tabular">
               {macro?.gdpPerCapitaUsd != null
-                ? `$${formatCompact(macro.gdpPerCapitaUsd)}${macro.year ? ` (${macro.year})` : ''}`
-                : '—'}
+                ? `$${formatCompact(macro.gdpPerCapitaUsd)}${macro.year ? ` (${macro.year})` : ""}`
+                : "—"}
             </div>
           </div>
         </div>
@@ -84,19 +78,19 @@ function PulseTile({
       {country?.population != null && (
         <p className="mt-3 text-xs text-muted">
           Population {formatCompact(country.population)} · {city.currencyCode}
-          {country.currencySymbol ? ` (${country.currencySymbol})` : ''}
+          {country.currencySymbol ? ` (${country.currencySymbol})` : ""}
         </p>
       )}
     </div>
-  )
+  );
 }
 
 export function CityPulseStrip({
   from,
   to,
 }: {
-  from: CityPulse
-  to: CityPulse
+  from: CityPulse;
+  to: CityPulse;
 }) {
   return (
     <section className="bento fade-in-delay-2 p-5 sm:p-6">
@@ -109,5 +103,5 @@ export function CityPulseStrip({
         <PulseTile pulse={to} label="Target" />
       </div>
     </section>
-  )
+  );
 }

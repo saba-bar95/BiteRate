@@ -1,4 +1,4 @@
-import { getCity } from '../../shared/cities.ts'
+import { getCity } from "../../shared/cities.ts";
 import type {
   FxStoryResult,
   SpendCompareResult,
@@ -6,44 +6,67 @@ import type {
   TripPlanResult,
   WageEquivalentInput,
   WageEquivalentResult,
-} from '../../shared/features.ts'
-import { convertAmount, getFxQuote, getUsdRateMap } from './fx.ts'
+} from "../../shared/features.ts";
+import { convertAmount, getFxQuote, getUsdRateMap } from "./fx.ts";
 
-export async function buildTripPlan(input: TripPlanInput): Promise<TripPlanResult | null> {
-  if (!input.stops.length) return null
-  const { rates } = await getUsdRateMap()
-  const homeCurrency = input.homeCurrency.toUpperCase()
+export async function buildTripPlan(
+  input: TripPlanInput,
+): Promise<TripPlanResult | null> {
+  if (!input.stops.length) return null;
+  const { rates } = await getUsdRateMap();
+  const homeCurrency = input.homeCurrency.toUpperCase();
 
-  const stops = []
+  const stops = [];
   for (const stop of input.stops) {
-    const city = getCity(stop.citySlug)
-    if (!city || stop.days <= 0) continue
-    const mealsPerDay = 2
-    const mealLocal = city.localBaselinePrices.burgerMeal * mealsPerDay * stop.days
-    const transitLocal = city.localBaselinePrices.transitTicket * 2 * stop.days
-    const lodgingLocal = (city.localBaselinePrices.oneBedRentCenter / 30) * stop.days
-    const dishLocal = city.signatureDish.localPrice
+    const city = getCity(stop.citySlug);
+    if (!city || stop.days <= 0) continue;
+    const mealsPerDay = 2;
+    const mealLocal =
+      city.localBaselinePrices.burgerMeal * mealsPerDay * stop.days;
+    const transitLocal = city.localBaselinePrices.transitTicket * 2 * stop.days;
+    const lodgingLocal =
+      (city.localBaselinePrices.oneBedRentCenter / 30) * stop.days;
+    const dishLocal = city.signatureDish.localPrice;
     const dishPortions =
       dishLocal > 0
-        ? convertAmount(input.dailyMealBudgetLocal ?? 40, homeCurrency, city.currencyCode, rates) /
-          dishLocal
-        : 0
+        ? convertAmount(
+            input.dailyMealBudgetLocal ?? 40,
+            homeCurrency,
+            city.currencyCode,
+            rates,
+          ) / dishLocal
+        : 0;
     const dishCost = convertAmount(
       dishLocal * Math.max(dishPortions, 0) * 0, // keep dish as cultural metric, cost in meals
       city.currencyCode,
       homeCurrency,
       rates,
-    )
-    void dishCost
-    const meals = convertAmount(mealLocal, city.currencyCode, homeCurrency, rates)
-    const transit = convertAmount(transitLocal, city.currencyCode, homeCurrency, rates)
-    const estimatedLodging = convertAmount(lodgingLocal, city.currencyCode, homeCurrency, rates)
+    );
+    void dishCost;
+    const meals = convertAmount(
+      mealLocal,
+      city.currencyCode,
+      homeCurrency,
+      rates,
+    );
+    const transit = convertAmount(
+      transitLocal,
+      city.currencyCode,
+      homeCurrency,
+      rates,
+    );
+    const estimatedLodging = convertAmount(
+      lodgingLocal,
+      city.currencyCode,
+      homeCurrency,
+      rates,
+    );
     const culturalDishSpend = convertAmount(
       city.signatureDish.localPrice * Math.min(stop.days, 7),
       city.currencyCode,
       homeCurrency,
       rates,
-    )
+    );
     stops.push({
       city,
       days: stop.days,
@@ -53,76 +76,77 @@ export async function buildTripPlan(input: TripPlanInput): Promise<TripPlanResul
       dishCost: culturalDishSpend,
       estimatedLodging,
       subtotal: meals + transit + estimatedLodging + culturalDishSpend,
-    })
+    });
   }
 
-  if (!stops.length) return null
-  const total = stops.reduce((s, x) => s + x.subtotal, 0)
+  if (!stops.length) return null;
+  const total = stops.reduce((s, x) => s + x.subtotal, 0);
   return {
     homeCurrency,
     stops,
     total,
     totalDays: stops.reduce((s, x) => s + x.days, 0),
-    fxNote: 'Converted via live USD cross rates with curated local baselines.',
-  }
+    fxNote: "Converted via live USD cross rates with curated local baselines.",
+  };
 }
 
 export async function buildWageEquivalent(
   input: WageEquivalentInput,
 ): Promise<WageEquivalentResult | null> {
-  const from = getCity(input.fromSlug)
-  const to = getCity(input.toSlug)
-  if (!from || !to || input.monthlyNetWage <= 0) return null
-  const { rates } = await getUsdRateMap()
+  const from = getCity(input.fromSlug);
+  const to = getCity(input.toSlug);
+  if (!from || !to || input.monthlyNetWage <= 0) return null;
+  const { rates } = await getUsdRateMap();
 
   const wageUsd = convertAmount(
     input.monthlyNetWage,
     from.currencyCode,
-    'USD',
+    "USD",
     rates,
-  )
+  );
   const fromRentUsd = convertAmount(
     from.localBaselinePrices.oneBedRentCenter,
     from.currencyCode,
-    'USD',
+    "USD",
     rates,
-  )
+  );
   const toRentUsd = convertAmount(
     to.localBaselinePrices.oneBedRentCenter,
     to.currencyCode,
-    'USD',
+    "USD",
     rates,
-  )
+  );
   const fromMealUsd = convertAmount(
     from.localBaselinePrices.burgerMeal,
     from.currencyCode,
-    'USD',
+    "USD",
     rates,
-  )
+  );
   const toMealUsd = convertAmount(
     to.localBaselinePrices.burgerMeal,
     to.currencyCode,
-    'USD',
+    "USD",
     rates,
-  )
-  const basketFrom = fromRentUsd + fromMealUsd * 60
-  const basketTo = toRentUsd + toMealUsd * 60
-  const ppIndex = basketFrom > 0 ? basketTo / basketFrom : 1
-  const equivalentUsd = wageUsd * ppIndex
+  );
+  const basketFrom = fromRentUsd + fromMealUsd * 60;
+  const basketTo = toRentUsd + toMealUsd * 60;
+  const ppIndex = basketFrom > 0 ? basketTo / basketFrom : 1;
+  const equivalentUsd = wageUsd * ppIndex;
   const equivalentWage =
-    Math.round(convertAmount(equivalentUsd, 'USD', to.currencyCode, rates) * 100) / 100
+    Math.round(
+      convertAmount(equivalentUsd, "USD", to.currencyCode, rates) * 100,
+    ) / 100;
 
-  const fromDish = from.signatureDish.localPrice
-  const toDish = to.signatureDish.localPrice
-  const dishPortionsFrom =
-    fromDish > 0 ? input.monthlyNetWage / fromDish : 0
+  const fromDish = from.signatureDish.localPrice;
+  const toDish = to.signatureDish.localPrice;
+  const dishPortionsFrom = fromDish > 0 ? input.monthlyNetWage / fromDish : 0;
   const wageInTo = convertAmount(
     input.monthlyNetWage,
     from.currencyCode,
     to.currencyCode,
     rates,
-  )
-  const dishPortionsTo = toDish > 0 ? wageInTo / toDish : 0
+  );
+  const dishPortionsTo = toDish > 0 ? wageInTo / toDish : 0;
 
   return {
     from,
@@ -132,71 +156,78 @@ export async function buildWageEquivalent(
     equivalentWage,
     equivalentCurrency: to.currencyCode,
     purchasingPowerIndex: Math.round(ppIndex * 100) / 100,
-    rentBurdenFrom: input.monthlyNetWage > 0 ? from.localBaselinePrices.oneBedRentCenter / input.monthlyNetWage : 0,
-    rentBurdenTo: equivalentWage > 0 ? to.localBaselinePrices.oneBedRentCenter / equivalentWage : 0,
+    rentBurdenFrom:
+      input.monthlyNetWage > 0
+        ? from.localBaselinePrices.oneBedRentCenter / input.monthlyNetWage
+        : 0,
+    rentBurdenTo:
+      equivalentWage > 0
+        ? to.localBaselinePrices.oneBedRentCenter / equivalentWage
+        : 0,
     dishPortionsFrom,
     dishPortionsTo,
     narrative: `To match your lifestyle from ${from.name} in ${to.name}, you'd need about ${equivalentWage.toFixed(0)} ${to.currencyCode}/month (PPP-style basket of rent + meals).`,
-  }
+  };
 }
 
 export async function buildFxStory(params: {
-  fromSlug: string
-  toSlug: string
-  budget: number
+  fromSlug: string;
+  toSlug: string;
+  budget: number;
 }): Promise<FxStoryResult | null> {
-  const from = getCity(params.fromSlug)
-  const to = getCity(params.toSlug)
-  if (!from || !to || params.budget <= 0) return null
+  const from = getCity(params.fromSlug);
+  const to = getCity(params.toSlug);
+  if (!from || !to || params.budget <= 0) return null;
 
-  const { quote } = await getFxQuote(from.currencyCode, to.currencyCode)
-  const { rates } = await getUsdRateMap()
-  const history = quote.history30d
-  const latest = quote.rate
-  const oldest = history[0]?.rate ?? latest
+  const { quote } = await getFxQuote(from.currencyCode, to.currencyCode);
+  const { rates } = await getUsdRateMap();
+  const history = quote.history30d;
+  const latest = quote.rate;
+  const oldest = history[0]?.rate ?? latest;
 
   // Approximate 1/3/12 month snapshots from available history + scaled placeholders
   const horizons = [
-    { monthsAgo: 0, label: 'Now', rate: latest },
+    { monthsAgo: 0, label: "Now", rate: latest },
     {
       monthsAgo: 1,
-      label: '1 month ago',
-      rate: history[Math.max(0, Math.floor(history.length * 0.05))]?.rate ?? oldest,
+      label: "1 month ago",
+      rate:
+        history[Math.max(0, Math.floor(history.length * 0.05))]?.rate ?? oldest,
     },
     {
       monthsAgo: 3,
-      label: '3 months ago',
+      label: "3 months ago",
       rate: oldest * (0.97 + (latest / Math.max(oldest, 1e-9)) * 0.03),
     },
     {
       monthsAgo: 12,
-      label: '12 months ago',
+      label: "12 months ago",
       rate: oldest * (0.92 + (latest / Math.max(oldest, 1e-9)) * 0.02),
     },
-  ]
+  ];
 
-  const dishPrice = to.signatureDish.localPrice
+  const dishPrice = to.signatureDish.localPrice;
   const points = horizons.map((h) => {
     const budgetInTarget =
       from.currencyCode === to.currencyCode
         ? params.budget
-        : params.budget * h.rate
+        : params.budget * h.rate;
     // Prefer convert for "now"; historical uses rate path
     const liveNow = convertAmount(
       params.budget,
       from.currencyCode,
       to.currencyCode,
       rates,
-    )
-    const amount = h.monthsAgo === 0 ? liveNow : budgetInTarget
+    );
+    const amount = h.monthsAgo === 0 ? liveNow : budgetInTarget;
     return {
       monthsAgo: h.monthsAgo,
       label: h.label,
       rate: h.rate,
       budgetInTarget: amount,
       dishPortions: dishPrice > 0 ? amount / dishPrice : 0,
-    }
-  })
+    };
+  });
 
   return {
     fromCurrency: from.currencyCode,
@@ -205,42 +236,45 @@ export async function buildFxStory(params: {
     cityName: to.name,
     dishName: to.signatureDish.name,
     points,
-  }
+  };
 }
 
-export function buildSpendCompare(amount: number, currency: string): SpendCompareResult {
+export function buildSpendCompare(
+  amount: number,
+  currency: string,
+): SpendCompareResult {
   const scenarios = [
     {
-      id: 'bank',
-      name: 'Traditional bank FX',
+      id: "bank",
+      name: "Traditional bank FX",
       feePct: 0.03,
-      blurb: 'Typical 2.5–3.5% markup on tourist FX.',
+      blurb: "Typical 2.5–3.5% markup on tourist FX.",
     },
     {
-      id: 'airport',
-      name: 'Airport exchange',
+      id: "airport",
+      name: "Airport exchange",
       feePct: 0.08,
-      blurb: 'Convenience tax — often the worst rate.',
+      blurb: "Convenience tax — often the worst rate.",
     },
     {
-      id: 'multi',
-      name: 'Multi-currency card',
+      id: "multi",
+      name: "Multi-currency card",
       feePct: 0.005,
-      blurb: 'Low FX fee cards / fintech accounts.',
+      blurb: "Low FX fee cards / fintech accounts.",
     },
     {
-      id: 'wise-like',
-      name: 'Mid-market transfer',
+      id: "wise-like",
+      name: "Mid-market transfer",
       feePct: 0.007,
-      blurb: 'Near mid-market with a small transfer fee.',
+      blurb: "Near mid-market with a small transfer fee.",
     },
   ].map((s) => {
-    const fee = amount * s.feePct
-    return { ...s, fee, net: amount - fee }
-  })
+    const fee = amount * s.feePct;
+    return { ...s, fee, net: amount - fee };
+  });
 
-  const best = [...scenarios].sort((a, b) => a.fee - b.fee)[0]
-  const worst = [...scenarios].sort((a, b) => b.fee - a.fee)[0]
+  const best = [...scenarios].sort((a, b) => a.fee - b.fee)[0];
+  const worst = [...scenarios].sort((a, b) => b.fee - a.fee)[0];
 
   return {
     amount,
@@ -248,5 +282,5 @@ export function buildSpendCompare(amount: number, currency: string): SpendCompar
     scenarios,
     bestId: best.id,
     savingsVsWorst: worst.fee - best.fee,
-  }
+  };
 }

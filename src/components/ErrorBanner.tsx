@@ -2,8 +2,8 @@ export function ErrorBanner({
   message,
   onRetry,
 }: {
-  message: string
-  onRetry?: () => void
+  message: string;
+  onRetry?: () => void;
 }) {
   return (
     <div
@@ -21,5 +21,5 @@ export function ErrorBanner({
         </button>
       ) : null}
     </div>
-  )
+  );
 }
