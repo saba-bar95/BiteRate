@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { listCities } from '@shared/cities'
+import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { FxStoryResult } from '@shared/features'
 import {
   Bar,
@@ -9,71 +9,105 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { LoadingSpinner } from '../components/LoadingSpinner'
+import { CitySelect } from '../components/CitySelect'
+import { ErrorBanner } from '../components/ErrorBanner'
+import { PageHeader } from '../components/PageHeader'
+import { PrimaryButton } from '../components/PrimaryButton'
+import { useCitiesCatalog } from '../hooks/useCitiesCatalog'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { fetchStory } from '../lib/api'
 import { formatNumber } from '../lib/format'
 
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setReduced(mq.matches)
+    const onChange = () => setReduced(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return reduced
+}
+
 export function StoryPage() {
-  const cities = useMemo(() => listCities(), [])
-  const [fromSlug, setFrom] = useState('new-york')
-  const [toSlug, setTo] = useState('tbilisi')
-  const [budget, setBudget] = useState('100')
+  usePageTitle('FX Story')
+  const { cities, loading: catalogLoading, error: catalogError, reload } =
+    useCitiesCatalog()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [fromSlug, setFrom] = useState(searchParams.get('from') || 'new-york')
+  const [toSlug, setTo] = useState(searchParams.get('to') || 'tbilisi')
+  const [budget, setBudget] = useState(searchParams.get('budget') || '100')
   const [story, setStory] = useState<FxStoryResult | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const reducedMotion = usePrefersReducedMotion()
 
-  const run = async () => {
+  const run = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       setStory(await fetchStory(fromSlug, toSlug, Number(budget) || 100))
+      setSearchParams(
+        { from: fromSlug, to: toSlug, budget },
+        { replace: true },
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to build story')
     } finally {
       setLoading(false)
     }
-  }
+  }, [budget, fromSlug, setSearchParams, toSlug])
+
+  useEffect(() => {
+    if (searchParams.get('from') || searchParams.get('to') || searchParams.get('budget')) {
+      void run()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <main className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
-      <div>
-        <p className="eyebrow">Inflation & FX story</p>
-        <h1 className="display mt-1 text-3xl">What your money bought over time</h1>
-      </div>
+      <PageHeader
+        eyebrow="Inflation & FX story"
+        title="What your money bought over time"
+      />
+
+      {(error || catalogError) && (
+        <ErrorBanner
+          message={error || catalogError || ''}
+          onRetry={() => (catalogError ? reload() : void run())}
+        />
+      )}
 
       <section className="bento grid gap-3 p-5 sm:grid-cols-4">
-        <select
+        <CitySelect
+          label="From"
           value={fromSlug}
-          onChange={(e) => setFrom(e.target.value)}
-          className="h-10 cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
-        >
-          {cities.map((c) => (
-            <option key={c.slug} value={c.slug}>
-              From {c.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={toSlug}
-          onChange={(e) => setTo(e.target.value)}
-          className="h-10 cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
-        >
-          {cities.map((c) => (
-            <option key={c.slug} value={c.slug}>
-              In {c.name}
-            </option>
-          ))}
-        </select>
-        <input
-          value={budget}
-          onChange={(e) => setBudget(e.target.value)}
-          className="h-10 rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
-          placeholder="Budget"
+          cities={cities}
+          disabled={catalogLoading}
+          onChange={setFrom}
         />
-        <button
-          type="button"
-          onClick={() => void run()}
-          className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-emerald/30 bg-emerald/10 text-sm text-emerald"
-        >
-          {loading ? <LoadingSpinner size="sm" /> : null}
-          Build story
-        </button>
+        <CitySelect
+          label="In"
+          value={toSlug}
+          cities={cities}
+          disabled={catalogLoading}
+          onChange={setTo}
+        />
+        <label className="text-sm text-muted">
+          Budget
+          <input
+            value={budget}
+            onChange={(e) => setBudget(e.target.value)}
+            className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
+          />
+        </label>
+        <div className="flex items-end">
+          <PrimaryButton className="w-full" loading={loading} onClick={() => void run()}>
+            Build story
+          </PrimaryButton>
+        </div>
       </section>
 
       {story && (
@@ -88,11 +122,16 @@ export function StoryPage() {
                 <YAxis stroke="#9a968c" fontSize={11} />
                 <Tooltip
                   contentStyle={{
-                    background: '#151513',
+                    background: 'var(--color-panel, #151513)',
                     border: '1px solid rgba(255,255,255,0.1)',
                   }}
                 />
-                <Bar dataKey="dishPortions" fill="#3d9b78" radius={4} />
+                <Bar
+                  dataKey="dishPortions"
+                  fill="#3d9b78"
+                  radius={4}
+                  isAnimationActive={!reducedMotion}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>

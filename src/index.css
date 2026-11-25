@@ -205,3 +205,20 @@
     background-position: -200% 0;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .fade-in-delay,
+  .fade-in-delay-2,
+  .pulse-dot,
+  .skeleton {
+    animation: none !important;
+  }
+
+  .fade-in,
+  .fade-in-delay,
+  .fade-in-delay-2 {
+    opacity: 1;
+    transform: none;
+  }
+}

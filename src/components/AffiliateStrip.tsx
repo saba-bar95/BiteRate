@@ -1,4 +1,5 @@
 import { ArrowUpRight, CreditCard } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { formatMoney, formatNumber } from '../lib/format'
 
 export function AffiliateStrip({
@@ -16,6 +17,8 @@ export function AffiliateStrip({
   savings: number
   savingsPct: number
 }) {
+  const spendTo = `/spend?amount=${encodeURIComponent(String(budget))}&currency=${encodeURIComponent(currency)}`
+
   return (
     <section className="bento fade-in flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
       <div className="flex items-start gap-3">
@@ -37,13 +40,13 @@ export function AffiliateStrip({
           </p>
         </div>
       </div>
-      <a
-        href="#smart-spend"
+      <Link
+        to={spendTo}
         className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-white/12 bg-panel px-4 text-sm font-medium text-ink transition hover:border-amber/40 hover:text-amber"
       >
         Multi-currency cards
         <ArrowUpRight className="h-4 w-4" />
-      </a>
+      </Link>
     </section>
   )
 }

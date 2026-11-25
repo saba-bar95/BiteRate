@@ -64,12 +64,12 @@ export function DishHeroCard({
             <img
               src={dish.wiki.thumbnailUrl}
               alt={dish.dishName}
-              className="h-24 w-24 rounded-md object-cover ring-1 ring-white/10"
+              className="h-36 w-36 shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-40 sm:w-40"
               loading="lazy"
             />
           ) : (
-            <div className="flex h-24 w-24 items-center justify-center rounded-md border border-white/10 bg-obsidian/60 text-muted">
-              <UtensilsCrossed className="h-7 w-7" />
+            <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-md border border-white/10 bg-obsidian/60 text-muted sm:h-40 sm:w-40">
+              <UtensilsCrossed className="h-9 w-9" />
             </div>
           )}
         </div>

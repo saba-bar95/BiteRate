@@ -5,6 +5,7 @@ import { BasketCard } from '../components/BasketCard'
 import { CityPulseStrip } from '../components/CityPulseStrip'
 import { ControlBar } from '../components/ControlBar'
 import { DishHeroCard } from '../components/DishHeroCard'
+import { ErrorBanner } from '../components/ErrorBanner'
 import { Leaderboard } from '../components/Leaderboard'
 import { FetchOverlay, LoadingSpinner } from '../components/LoadingSpinner'
 import { LoadingSkeleton } from '../components/LoadingSkeleton'
@@ -12,6 +13,7 @@ import { ShareModal } from '../components/ShareModal'
 import { StatusPill } from '../components/StatusPill'
 import { Toast } from '../components/Toast'
 import { useComparisonState } from '../hooks/useComparisonState'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { fetchCities, fetchPulse } from '../lib/api'
 import { uid, upsertSaved } from '../lib/storage'
 
@@ -26,8 +28,11 @@ export function HomePage() {
     setBudget,
     setMode,
     swap,
+    syncUrl,
     shareUrl,
   } = useComparisonState()
+
+  usePageTitle('Compare')
 
   const [citiesPayload, setCitiesPayload] = useState<CitiesListResponse | null>(null)
   const [citiesLoading, setCitiesLoading] = useState(true)
@@ -37,8 +42,9 @@ export function HomePage() {
   const [toast, setToast] = useState<string | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
 
-  useEffect(() => {
+  const loadCities = useCallback(() => {
     const ac = new AbortController()
     setCitiesLoading(true)
     fetchCities(ac.signal)
@@ -53,6 +59,8 @@ export function HomePage() {
       })
     return () => ac.abort()
   }, [])
+
+  useEffect(() => loadCities(), [loadCities, retryKey])
 
   useEffect(() => {
     const ac = new AbortController()
@@ -85,7 +93,7 @@ export function HomePage() {
       ac.abort()
       window.clearTimeout(handle)
     }
-  }, [budget, fromSlug, mode, toSlug])
+  }, [budget, fromSlug, mode, toSlug, retryKey])
 
   useEffect(() => {
     if (!toast) return
@@ -125,7 +133,7 @@ export function HomePage() {
     : 'Syncing…'
 
   return (
-    <div className="min-h-screen pb-16">
+    <div className="pb-16">
       <ControlBar
         cities={cities.length ? cities : []}
         fromSlug={fromSlug}
@@ -154,6 +162,23 @@ export function HomePage() {
               Live FX, local wages, weather, and cultural dish purchasing power —
               from Khinkali in Tbilisi to Ramen in Tokyo.
             </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                { from: 'new-york', to: 'tbilisi', label: 'NYC → Tbilisi' },
+                { from: 'london', to: 'lisbon', label: 'London → Lisbon' },
+                { from: 'berlin', to: 'bangkok', label: 'Berlin → Bangkok' },
+                { from: 'tokyo', to: 'osaka', label: 'Tokyo → Osaka' },
+              ].map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => syncUrl({ from: p.from, to: p.to })}
+                  className="cursor-pointer rounded-md border border-white/10 bg-panel px-3 py-1.5 text-sm text-muted transition hover:border-emerald/40 hover:text-emerald"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {loading && pulse && (
@@ -172,9 +197,7 @@ export function HomePage() {
         </div>
 
         {error && (
-          <div className="mb-4 rounded-md border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">
-            {error}
-          </div>
+          <ErrorBanner message={error} onRetry={() => setRetryKey((k) => k + 1)} />
         )}
 
         {loading && !pulse ? (
