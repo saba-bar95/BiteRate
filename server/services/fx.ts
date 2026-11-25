@@ -257,21 +257,7 @@ export async function getFxQuote(
 }
 
 /** Convert `amount` in `fromCurrency` into `toCurrency`. */
-export function convertAmount(
-  amount: number,
-  fromCurrency: string,
-  toCurrency: string,
-  usdRates: Record<string, number>,
-): number {
-  const from = fromCurrency.toUpperCase()
-  const to = toCurrency.toUpperCase()
-  if (from === to) return amount
-  const usdFrom = from === 'USD' ? 1 : usdRates[from]
-  const usdTo = to === 'USD' ? 1 : usdRates[to]
-  if (!usdFrom || !usdTo) return amount
-  const inUsd = amount / usdFrom
-  return inUsd * usdTo
-}
+export { convertAmount } from '../../shared/pulseMath.ts'
 
 export async function getUsdRateMap(): Promise<{
   rates: Record<string, number>

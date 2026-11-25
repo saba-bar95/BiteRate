@@ -10,7 +10,8 @@
     "build": "tsc -b && vite build",
     "start": "tsx server/index.ts",
     "preview": "vite preview --port 3847 --host 127.0.0.1",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.11",
@@ -32,6 +33,7 @@
     "tailwindcss": "^4.3.5",
     "tsx": "^4.23.15",
     "typescript": "~7.0.2",
-    "vite": "^8.3.6"
+    "vite": "^8.3.6",
+    "vitest": "^3.2.4"
   }
 }

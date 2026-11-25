@@ -62,10 +62,16 @@ export function BasketCard({
         <table className="w-full min-w-[520px] text-left text-sm">
           <thead>
             <tr className="border-b border-white/8 text-xs text-muted">
-              <th className="pb-2 font-medium">Item</th>
-              <th className="pb-2 font-medium">{fromName}</th>
-              <th className="pb-2 font-medium">{toName}</th>
-              <th className="pb-2 text-right font-medium">
+              <th scope="col" className="pb-2 font-medium">
+                Item
+              </th>
+              <th scope="col" className="pb-2 font-medium">
+                {fromName}
+              </th>
+              <th scope="col" className="pb-2 font-medium">
+                {toName}
+              </th>
+              <th scope="col" className="pb-2 text-right font-medium">
                 Home Δ ({homeCurrency})
               </th>
             </tr>
@@ -87,6 +93,14 @@ export function BasketCard({
                       item.key,
                     )}`}
                   >
+                    <span className="sr-only">
+                      {item.deltaPct < 0
+                        ? 'Lower in home city'
+                        : item.deltaPct > 0
+                          ? 'Higher in home city'
+                          : 'Same'}
+                      :{' '}
+                    </span>
                     {formatPct(item.deltaPct)}
                   </td>
                 </tr>

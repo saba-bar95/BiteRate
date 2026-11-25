@@ -30,6 +30,13 @@ export function Leaderboard({
     [rows],
   )
 
+  const globalRank = useMemo(() => {
+    const sorted = [...rows].sort((a, b) => b.score - a.score)
+    const map = new Map<string, number>()
+    sorted.forEach((row, i) => map.set(row.slug, i + 1))
+    return map
+  }, [rows])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     const list = rows.filter((row) => {
@@ -124,8 +131,9 @@ export function Leaderboard({
       </div>
 
       <div className="mt-5 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-        {visible.map((row, index) => {
+        {visible.map((row) => {
           const active = row.slug === activeSlug
+          const rank = globalRank.get(row.slug) ?? 0
           return (
             <button
               key={row.slug}
@@ -139,7 +147,7 @@ export function Leaderboard({
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="text-xs tabular text-muted">#{index + 1}</div>
+                  <div className="text-xs tabular text-muted">#{rank}</div>
                   <div className="mt-0.5 font-medium">{row.name}</div>
                   <div className="text-xs text-muted">
                     {row.country} · {row.currencyCode}

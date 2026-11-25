@@ -1,11 +1,15 @@
-import { cityStats, getCity, listCities } from '@shared/cities'
+import {
+  buildBasket,
+  buildDishPower,
+  convertAmount,
+  localTimeFor,
+  purchasingPowerScore,
+} from '@shared/pulseMath'
 import type {
-  BasketItem,
   CitiesListResponse,
   City,
   CityPulse,
   CountryMeta,
-  DishPurchasingPower,
   FxQuote,
   MacroContext,
   PulseResponse,
@@ -14,6 +18,22 @@ import type {
   WeatherSnapshot,
   WikiDishSummary,
 } from '@shared/types'
+
+async function citiesModule() {
+  return import('@shared/cities')
+}
+async function getCity(slug: string) {
+  const m = await citiesModule()
+  return m.getCity(slug)
+}
+async function listCities() {
+  const m = await citiesModule()
+  return m.listCities()
+}
+async function cityStats() {
+  const m = await citiesModule()
+  return m.cityStats()
+}
 
 const WMO: Record<number, string> = {
   0: 'Clear sky',
@@ -55,20 +75,6 @@ async function getUsdRates(): Promise<{
   }
 }
 
-function convert(
-  amount: number,
-  from: string,
-  to: string,
-  rates: Record<string, number>,
-): number {
-  const a = from.toUpperCase()
-  const b = to.toUpperCase()
-  if (a === b) return amount
-  const usdFrom = a === 'USD' ? 1 : rates[a]
-  const usdTo = b === 'USD' ? 1 : rates[b]
-  if (!usdFrom || !usdTo) return amount
-  return (amount / usdFrom) * usdTo
-}
 
 async function getFx(from: string, to: string): Promise<{
   quote: FxQuote | null
@@ -297,94 +303,9 @@ async function getMacro(
   }
 }
 
-function localTime(timezone: string): string {
-  try {
-    return new Intl.DateTimeFormat('en-GB', {
-      timeZone: timezone,
-      weekday: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).format(new Date())
-  } catch {
-    return new Date().toISOString().slice(11, 16)
-  }
-}
 
-function dishPower(
-  city: City,
-  budgetLocal: number,
-  wiki: WikiDishSummary | null,
-): DishPurchasingPower {
-  const price = city.signatureDish.localPrice
-  const portions = price > 0 ? budgetLocal / price : 0
-  return {
-    dishName: city.signatureDish.name,
-    unitLabel: city.signatureDish.unitLabel,
-    localPrice: price,
-    visitorPortions: portions,
-    visitorUnitsApprox: Math.round(portions * 10) / 10,
-    localWagePortions: price > 0 ? city.localBaselinePrices.avgMonthlyNetSalary / price : 0,
-    caloriesPerBudget: portions * city.signatureDish.caloriesApprox,
-    wiki,
-  }
-}
 
-function basket(
-  from: City,
-  to: City,
-  homeCurrency: string,
-  rates: Record<string, number>,
-): BasketItem[] {
-  const keys: Array<{ key: keyof City['localBaselinePrices']; label: string }> = [
-    { key: 'burgerMeal', label: 'Casual Meal / Burger' },
-    { key: 'cappuccino', label: 'Cappuccino' },
-    { key: 'transitTicket', label: '1-Way Transit' },
-    { key: 'oneBedRentCenter', label: '1BR City-Center Rent' },
-    { key: 'avgMonthlyNetSalary', label: 'Median Net Monthly Wage' },
-  ]
-  return keys.map(({ key, label }) => {
-    const fromLocal = from.localBaselinePrices[key]
-    const toLocal = to.localBaselinePrices[key]
-    const fromInHome = convert(fromLocal, from.currencyCode, homeCurrency, rates)
-    const toInHome = convert(toLocal, to.currencyCode, homeCurrency, rates)
-    return {
-      key,
-      label,
-      fromLocal,
-      toLocal,
-      fromInHomeCurrency: fromInHome,
-      toInHomeCurrency: toInHome,
-      // Home vs target: negative = home cheaper (or lower wage), positive = home dearer
-      deltaPct: fromInHome === 0 ? 0 : ((fromInHome - toInHome) / fromInHome) * 100,
-    }
-  })
-}
 
-function scoreCity(city: City, rates: Record<string, number>): number {
-  const salaryUsd = convert(
-    city.localBaselinePrices.avgMonthlyNetSalary,
-    city.currencyCode,
-    'USD',
-    rates,
-  )
-  const rentUsd = convert(
-    city.localBaselinePrices.oneBedRentCenter,
-    city.currencyCode,
-    'USD',
-    rates,
-  )
-  const mealUsd = convert(
-    city.localBaselinePrices.burgerMeal,
-    city.currencyCode,
-    'USD',
-    rates,
-  )
-  const dishUsd = convert(city.signatureDish.localPrice, city.currencyCode, 'USD', rates)
-  const disposable = Math.max(salaryUsd - rentUsd, 1)
-  const affordability = disposable / Math.max(mealUsd + dishUsd, 1)
-  return Math.round(Math.min(100, Math.max(0, Math.log10(affordability + 1) * 40 + 20)))
-}
 
 async function cityPulse(city: City): Promise<{
   pulse: CityPulse
@@ -400,7 +321,7 @@ async function cityPulse(city: City): Promise<{
   return {
     pulse: {
       city,
-      localTime: localTime(city.timezone),
+      localTime: localTimeFor(city.timezone),
       weather: weather.weather,
       country: country.country,
       macro: macro.macro,
@@ -426,8 +347,8 @@ export async function buildClientPulse(params: {
   mode: 'flat' | 'hourly'
   wage?: number | null
 }): Promise<PulseResponse> {
-  const fromCity = getCity(params.from)
-  const toCity = getCity(params.to)
+  const fromCity = await getCity(params.from)
+  const toCity = await getCity(params.to)
   if (!fromCity || !toCity) throw new Error('Unknown city slug')
 
   const budget =
@@ -443,15 +364,15 @@ export async function buildClientPulse(params: {
   ])
 
   const rates = usdMap.rates
-  const budgetInTarget = convert(
+  const budgetInTarget = convertAmount(
     budget,
     fromCity.currencyCode,
     toCity.currencyCode,
     rates,
   )
-  const dish = dishPower(toCity, budgetInTarget, toWiki.wiki)
-  const homeDish = dishPower(fromCity, budget, fromWiki.wiki)
-  const items = basket(fromCity, toCity, fromCity.currencyCode, rates)
+  const dish = buildDishPower(toCity, budgetInTarget, toWiki.wiki)
+  const homeDish = buildDishPower(fromCity, budget, fromWiki.wiki)
+  const items = buildBasket(fromCity, toCity, fromCity.currencyCode, rates)
   const homeMeal = items.find((b) => b.key === 'burgerMeal')
   const purchasingPowerScore =
     homeMeal && homeMeal.toInHomeCurrency > 0
@@ -491,7 +412,7 @@ export async function buildClientPulse(params: {
 }
 
 export async function buildClientCities(): Promise<CitiesListResponse> {
-  const cities = listCities()
+  const cities = await listCities()
   const { rates, status } = await getUsdRates()
   const leaderboard: PurchasingPowerScore[] = cities
     .map((city) => ({
@@ -499,16 +420,16 @@ export async function buildClientCities(): Promise<CitiesListResponse> {
       name: city.name,
       country: city.country,
       currencyCode: city.currencyCode,
-      score: scoreCity(city, rates),
+      score: purchasingPowerScore(city, rates),
       fxGain30d: null,
-      dishValueUsd: convert(city.signatureDish.localPrice, city.currencyCode, 'USD', rates),
-      salaryUsd: convert(
+      dishValueUsd: convertAmount(city.signatureDish.localPrice, city.currencyCode, 'USD', rates),
+      salaryUsd: convertAmount(
         city.localBaselinePrices.avgMonthlyNetSalary,
         city.currencyCode,
         'USD',
         rates,
       ),
-      rentUsd: convert(
+      rentUsd: convertAmount(
         city.localBaselinePrices.oneBedRentCenter,
         city.currencyCode,
         'USD',
@@ -517,7 +438,7 @@ export async function buildClientCities(): Promise<CitiesListResponse> {
     }))
     .sort((a, b) => b.score - a.score)
 
-  const stats = cityStats()
+  const stats = await cityStats()
   return {
     cities,
     leaderboard,
