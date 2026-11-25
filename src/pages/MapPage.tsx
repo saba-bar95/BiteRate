@@ -1,70 +1,76 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ErrorBanner } from '../components/ErrorBanner'
-import { LoadingSpinner } from '../components/LoadingSpinner'
-import { PageHeader } from '../components/PageHeader'
-import { useCitiesCatalog } from '../hooks/useCitiesCatalog'
-import { usePageTitle } from '../hooks/usePageTitle'
-import { fetchMap } from '../lib/api'
-import { getLastCompareFrom } from '../lib/lastCompare'
-import { formatNumber } from '../lib/format'
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { ErrorBanner } from "../components/ErrorBanner";
+import { LoadingSpinner } from "../components/LoadingSpinner";
+import { PageHeader } from "../components/PageHeader";
+import { useCitiesCatalog } from "../hooks/useCitiesCatalog";
+import { useSeo } from "../hooks/useSeo";
+import { fetchMap } from "../lib/api";
+import { getLastCompareFrom } from "../lib/lastCompare";
+import { formatNumber } from "../lib/format";
 
 type Point = {
-  slug: string
-  name: string
-  country: string
-  score: number
-  lat: number
-  lon: number
-  dish: string
-}
+  slug: string;
+  name: string;
+  country: string;
+  score: number;
+  lat: number;
+  lon: number;
+  dish: string;
+};
 
 function project(lat: number, lon: number, w: number, h: number) {
-  const x = ((lon + 180) / 360) * w
-  const y = ((90 - lat) / 180) * h
-  return { x, y }
+  const x = ((lon + 180) / 360) * w;
+  const y = ((90 - lat) / 180) * h;
+  return { x, y };
 }
 
 export function MapPage() {
-  usePageTitle('Map')
-  const { byCountry } = useCitiesCatalog()
-  const [points, setPoints] = useState<Point[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [active, setActive] = useState<Point | null>(null)
-  const [query, setQuery] = useState('')
-  const [countryFilter, setCountryFilter] = useState('all')
-  const [retryKey, setRetryKey] = useState(0)
-  const w = 960
-  const h = 480
-  const fromSlug = getLastCompareFrom() || 'new-york'
-  const countries = useMemo(() => Object.keys(byCountry).sort(), [byCountry])
+  useSeo(
+    "Map",
+    "Explore purchasing power scores on a world map and browse cities by country.",
+  );
+  const { byCountry } = useCitiesCatalog();
+  const [points, setPoints] = useState<Point[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [active, setActive] = useState<Point | null>(null);
+  const [query, setQuery] = useState("");
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [retryKey, setRetryKey] = useState(0);
+  const w = 960;
+  const h = 480;
+  const fromSlug = getLastCompareFrom() || "new-york";
+  const countries = useMemo(() => Object.keys(byCountry).sort(), [byCountry]);
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     fetchMap()
       .then((d) => setPoints(d.points))
       .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : 'Failed to load map'),
+        setError(err instanceof Error ? err.message : "Failed to load map"),
       )
-      .finally(() => setLoading(false))
-  }, [retryKey])
+      .finally(() => setLoading(false));
+  }, [retryKey]);
 
-  const max = useMemo(() => Math.max(...points.map((p) => p.score), 1), [points])
+  const max = useMemo(
+    () => Math.max(...points.map((p) => p.score), 1),
+    [points],
+  );
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = query.trim().toLowerCase();
     return points.filter((p) => {
-      if (countryFilter !== 'all' && p.country !== countryFilter) return false
-      if (!q) return true
+      if (countryFilter !== "all" && p.country !== countryFilter) return false;
+      if (!q) return true;
       return (
         p.name.toLowerCase().includes(q) ||
         p.country.toLowerCase().includes(q) ||
         p.dish.toLowerCase().includes(q)
-      )
-    })
-  }, [points, query, countryFilter])
+      );
+    });
+  }, [points, query, countryFilter]);
 
   return (
     <main className="mx-auto max-w-6xl space-y-4 px-4 py-6 sm:px-6">
@@ -75,7 +81,10 @@ export function MapPage() {
       />
 
       {error && (
-        <ErrorBanner message={error} onRetry={() => setRetryKey((k) => k + 1)} />
+        <ErrorBanner
+          message={error}
+          onRetry={() => setRetryKey((k) => k + 1)}
+        />
       )}
 
       <section className="bento grid gap-4 overflow-hidden p-3 sm:p-5 lg:grid-cols-[1fr_280px]">
@@ -114,16 +123,16 @@ export function MapPage() {
                   />
                 ))}
                 {points.map((p) => {
-                  const { x, y } = project(p.lat, p.lon, w, h)
-                  const r = 3 + (p.score / max) * 7
-                  const selected = p === active
+                  const { x, y } = project(p.lat, p.lon, w, h);
+                  const r = 3 + (p.score / max) * 7;
+                  const selected = p === active;
                   return (
                     <circle
                       key={p.slug}
                       cx={x}
                       cy={y}
                       r={r}
-                      fill={selected ? '#c9923a' : '#3d9b78'}
+                      fill={selected ? "#c9923a" : "#3d9b78"}
                       fillOpacity={0.85}
                       role="button"
                       tabIndex={0}
@@ -131,9 +140,9 @@ export function MapPage() {
                       className="cursor-pointer outline-none focus:stroke-amber focus:stroke-2"
                       onClick={() => setActive(p)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          setActive(p)
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setActive(p);
                         }
                       }}
                     >
@@ -141,7 +150,7 @@ export function MapPage() {
                         {p.name}: score {p.score}
                       </title>
                     </circle>
-                  )
+                  );
                 })}
               </svg>
             </div>
@@ -179,15 +188,19 @@ export function MapPage() {
                       onClick={() => setActive(p)}
                       className={`flex w-full cursor-pointer items-center justify-between rounded-md px-2.5 py-2 text-left text-sm transition ${
                         active?.slug === p.slug
-                          ? 'bg-emerald/15 text-ink'
-                          : 'text-muted hover:bg-white/5 hover:text-ink'
+                          ? "bg-emerald/15 text-ink"
+                          : "text-muted hover:bg-white/5 hover:text-ink"
                       }`}
                     >
                       <span>
                         {p.name}
-                        <span className="block text-xs text-muted">{p.country}</span>
+                        <span className="block text-xs text-muted">
+                          {p.country}
+                        </span>
                       </span>
-                      <span className="tabular text-emerald">{formatNumber(p.score, 0)}</span>
+                      <span className="tabular text-emerald">
+                        {formatNumber(p.score, 0)}
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -224,5 +237,5 @@ export function MapPage() {
         )}
       </section>
     </main>
-  )
+  );
 }

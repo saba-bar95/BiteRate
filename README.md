@@ -61,6 +61,15 @@ npm run dev
 
 Both processes must be running. If the API is down, the UI shows proxy/`ECONNREFUSED` errors for `/api/*`.
 
+### Vercel (frontend analytics & SPA hosting)
+
+The UI includes **Vercel Web Analytics** and **Speed Insights** (`@vercel/analytics`, `@vercel/speed-insights`). They only send data in production on Vercel.
+
+1. Deploy/import the repo on Vercel (Vite preset; `vercel.json` rewrites SPA routes to `index.html`).
+2. In the Vercel project: **Analytics → Enable**, and enable **Speed Insights** if prompted.
+3. Point your production API separately (or keep `npm start` on a Node host). Vite’s `/api` proxy is for local/dev; on Vercel the static UI needs a real API base URL if you host the API elsewhere.
+4. After deploy, replace the placeholder origin in [`public/sitemap.xml`](public/sitemap.xml) with your real domain (sitemaps require absolute URLs).
+
 ### Scripts
 
 | Command | Description |

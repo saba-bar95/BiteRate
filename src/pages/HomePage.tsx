@@ -1,21 +1,21 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { CitiesListResponse, PulseResponse } from '@shared/types'
-import { AffiliateStrip } from '../components/AffiliateStrip'
-import { BasketCard } from '../components/BasketCard'
-import { CityPulseStrip } from '../components/CityPulseStrip'
-import { ControlBar } from '../components/ControlBar'
-import { DishHeroCard } from '../components/DishHeroCard'
-import { ErrorBanner } from '../components/ErrorBanner'
-import { Leaderboard } from '../components/Leaderboard'
-import { FetchOverlay, LoadingSpinner } from '../components/LoadingSpinner'
-import { LoadingSkeleton } from '../components/LoadingSkeleton'
-import { ShareModal } from '../components/ShareModal'
-import { StatusPill } from '../components/StatusPill'
-import { Toast } from '../components/Toast'
-import { useComparisonState } from '../hooks/useComparisonState'
-import { usePageTitle } from '../hooks/usePageTitle'
-import { fetchCities, fetchPulse } from '../lib/api'
-import { uid, upsertSaved } from '../lib/storage'
+import { useCallback, useEffect, useState } from "react";
+import type { CitiesListResponse, PulseResponse } from "@shared/types";
+import { AffiliateStrip } from "../components/AffiliateStrip";
+import { BasketCard } from "../components/BasketCard";
+import { CityPulseStrip } from "../components/CityPulseStrip";
+import { ControlBar } from "../components/ControlBar";
+import { DishHeroCard } from "../components/DishHeroCard";
+import { ErrorBanner } from "../components/ErrorBanner";
+import { Leaderboard } from "../components/Leaderboard";
+import { FetchOverlay, LoadingSpinner } from "../components/LoadingSpinner";
+import { LoadingSkeleton } from "../components/LoadingSkeleton";
+import { ShareModal } from "../components/ShareModal";
+import { StatusPill } from "../components/StatusPill";
+import { Toast } from "../components/Toast";
+import { useComparisonState } from "../hooks/useComparisonState";
+import { useSeo } from "../hooks/useSeo";
+import { fetchCities, fetchPulse } from "../lib/api";
+import { uid, upsertSaved } from "../lib/storage";
 
 export function HomePage() {
   const {
@@ -30,107 +30,114 @@ export function HomePage() {
     swap,
     syncUrl,
     shareUrl,
-  } = useComparisonState()
+  } = useComparisonState();
 
-  usePageTitle('Compare')
+  useSeo(
+    "Compare",
+    "Compare purchasing power between cities with live FX, wages, weather, and signature local dishes.",
+  );
 
-  const [citiesPayload, setCitiesPayload] = useState<CitiesListResponse | null>(null)
-  const [citiesLoading, setCitiesLoading] = useState(true)
-  const [pulse, setPulse] = useState<PulseResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
-  const [shareOpen, setShareOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [retryKey, setRetryKey] = useState(0)
+  const [citiesPayload, setCitiesPayload] = useState<CitiesListResponse | null>(
+    null,
+  );
+  const [citiesLoading, setCitiesLoading] = useState(true);
+  const [pulse, setPulse] = useState<PulseResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   const loadCities = useCallback(() => {
-    const ac = new AbortController()
-    setCitiesLoading(true)
+    const ac = new AbortController();
+    setCitiesLoading(true);
     fetchCities(ac.signal)
       .then((data) => {
-        setCitiesPayload(data)
-        setCitiesLoading(false)
+        setCitiesPayload(data);
+        setCitiesLoading(false);
       })
       .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        setError(err instanceof Error ? err.message : 'Failed to load cities')
-        setCitiesLoading(false)
-      })
-    return () => ac.abort()
-  }, [])
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Failed to load cities");
+        setCitiesLoading(false);
+      });
+    return () => ac.abort();
+  }, []);
 
-  useEffect(() => loadCities(), [loadCities, retryKey])
+  useEffect(() => loadCities(), [loadCities, retryKey]);
 
   useEffect(() => {
-    const ac = new AbortController()
+    const ac = new AbortController();
     // Budget is already debounced in the control bar; keep a short delay for city/mode swaps
     const handle = window.setTimeout(() => {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       fetchPulse(
         {
           from: fromSlug,
           to: toSlug,
           budget,
           mode,
-          wage: mode === 'hourly' ? budget : null,
+          wage: mode === "hourly" ? budget : null,
         },
         ac.signal,
       )
         .then((data) => {
-          setPulse(data)
-          setLoading(false)
+          setPulse(data);
+          setLoading(false);
         })
         .catch((err: unknown) => {
-          if (err instanceof DOMException && err.name === 'AbortError') return
-          setError(err instanceof Error ? err.message : 'Failed to load comparison')
-          setLoading(false)
-        })
-    }, 150)
+          if (err instanceof DOMException && err.name === "AbortError") return;
+          setError(
+            err instanceof Error ? err.message : "Failed to load comparison",
+          );
+          setLoading(false);
+        });
+    }, 150);
 
     return () => {
-      ac.abort()
-      window.clearTimeout(handle)
-    }
-  }, [budget, fromSlug, mode, toSlug, retryKey])
+      ac.abort();
+      window.clearTimeout(handle);
+    };
+  }, [budget, fromSlug, mode, toSlug, retryKey]);
 
   useEffect(() => {
-    if (!toast) return
-    const id = window.setTimeout(() => setToast(null), 2400)
-    return () => window.clearTimeout(id)
-  }, [toast])
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 2400);
+    return () => window.clearTimeout(id);
+  }, [toast]);
 
   const onShare = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(shareUrl)
-      setCopied(true)
-      setToast('Shareable comparison copied')
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setToast("Shareable comparison copied");
     } catch {
-      setCopied(false)
+      setCopied(false);
     }
-    setShareOpen(true)
-  }, [shareUrl])
+    setShareOpen(true);
+  }, [shareUrl]);
 
   const onSave = useCallback(() => {
-    const label = `${fromSlug} vs ${toSlug}`
+    const label = `${fromSlug} vs ${toSlug}`;
     upsertSaved({
-      id: uid('cmp'),
+      id: uid("cmp"),
       fromSlug,
       toSlug,
       budget,
       mode,
       label,
       createdAt: new Date().toISOString(),
-    })
-    setToast('Comparison saved locally')
-  }, [budget, fromSlug, mode, toSlug])
+    });
+    setToast("Comparison saved locally");
+  }, [budget, fromSlug, mode, toSlug]);
 
-  const cities = citiesPayload?.cities ?? []
-  const busy = loading || citiesLoading
+  const cities = citiesPayload?.cities ?? [];
+  const busy = loading || citiesLoading;
   const fxLabel = pulse?.fx
     ? `1 ${pulse.fx.from} = ${pulse.fx.rate.toFixed(2)} ${pulse.fx.to}`
-    : 'Syncing…'
+    : "Syncing…";
 
   return (
     <div className="pb-16">
@@ -141,7 +148,10 @@ export function HomePage() {
         budget={budget}
         mode={mode}
         fxLabel={fxLabel}
-        fxLive={pulse?.sourcesStatus.fx === 'ok' || pulse?.sourcesStatus.fx === 'cached'}
+        fxLive={
+          pulse?.sourcesStatus.fx === "ok" ||
+          pulse?.sourcesStatus.fx === "cached"
+        }
         loading={busy}
         onFromChange={setFrom}
         onToChange={setTo}
@@ -159,15 +169,15 @@ export function HomePage() {
               How far does your money go?
             </h1>
             <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted">
-              Live FX, local wages, weather, and cultural dish purchasing power —
-              from Khinkali in Tbilisi to Ramen in Tokyo.
+              Live FX, local wages, weather, and cultural dish purchasing power
+              — from Khinkali in Tbilisi to Ramen in Tokyo.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {[
-                { from: 'new-york', to: 'tbilisi', label: 'NYC → Tbilisi' },
-                { from: 'london', to: 'lisbon', label: 'London → Lisbon' },
-                { from: 'berlin', to: 'bangkok', label: 'Berlin → Bangkok' },
-                { from: 'tokyo', to: 'osaka', label: 'Tokyo → Osaka' },
+                { from: "new-york", to: "tbilisi", label: "NYC → Tbilisi" },
+                { from: "london", to: "lisbon", label: "London → Lisbon" },
+                { from: "berlin", to: "bangkok", label: "Berlin → Bangkok" },
+                { from: "tokyo", to: "osaka", label: "Tokyo → Osaka" },
               ].map((p) => (
                 <button
                   key={p.label}
@@ -182,22 +192,41 @@ export function HomePage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {loading && pulse && (
-              <LoadingSpinner size="sm" label="Refreshing live data…" className="mr-1" />
+              <LoadingSpinner
+                size="sm"
+                label="Refreshing live data…"
+                className="mr-1"
+              />
             )}
             {pulse && (
               <>
                 <StatusPill label="FX" status={pulse.sourcesStatus.fx} />
-                <StatusPill label="Weather" status={pulse.sourcesStatus.weather} />
-                <StatusPill label="Wiki" status={pulse.sourcesStatus.wikipedia} />
-                <StatusPill label="Countries" status={pulse.sourcesStatus.countries} />
-                <StatusPill label="World Bank" status={pulse.sourcesStatus.worldBank} />
+                <StatusPill
+                  label="Weather"
+                  status={pulse.sourcesStatus.weather}
+                />
+                <StatusPill
+                  label="Wiki"
+                  status={pulse.sourcesStatus.wikipedia}
+                />
+                <StatusPill
+                  label="Countries"
+                  status={pulse.sourcesStatus.countries}
+                />
+                <StatusPill
+                  label="World Bank"
+                  status={pulse.sourcesStatus.worldBank}
+                />
               </>
             )}
           </div>
         </div>
 
         {error && (
-          <ErrorBanner message={error} onRetry={() => setRetryKey((k) => k + 1)} />
+          <ErrorBanner
+            message={error}
+            onRetry={() => setRetryKey((k) => k + 1)}
+          />
         )}
 
         {loading && !pulse ? (
@@ -213,7 +242,7 @@ export function HomePage() {
             <FetchOverlay show={loading} label="Updating live comparison…" />
             <div
               className={`space-y-4 transition-[opacity,filter] duration-200 ${
-                loading ? 'pointer-events-none opacity-45' : ''
+                loading ? "pointer-events-none opacity-45" : ""
               }`}
               aria-busy={loading}
             >
@@ -274,12 +303,12 @@ export function HomePage() {
         fromName={pulse?.from.city.name ?? fromSlug}
         toName={pulse?.to.city.name ?? toSlug}
         budget={budget}
-        currency={pulse?.from.city.currencyCode ?? 'USD'}
-        dishName={pulse?.dish?.dishName ?? 'local dishes'}
+        currency={pulse?.from.city.currencyCode ?? "USD"}
+        dishName={pulse?.dish?.dishName ?? "local dishes"}
         portions={pulse?.dish?.visitorUnitsApprox ?? 0}
         score={pulse?.purchasingPowerScore ?? 0}
       />
       <Toast message={toast} />
     </div>
-  )
+  );
 }

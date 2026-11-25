@@ -1,47 +1,50 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import type { SpendCompareResult } from '@shared/features'
-import { ErrorBanner } from '../components/ErrorBanner'
-import { PageHeader } from '../components/PageHeader'
-import { PrimaryButton } from '../components/PrimaryButton'
-import { usePageTitle } from '../hooks/usePageTitle'
-import { fetchSpend } from '../lib/api'
-import { formatMoney, formatNumber } from '../lib/format'
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import type { SpendCompareResult } from "@shared/features";
+import { ErrorBanner } from "../components/ErrorBanner";
+import { PageHeader } from "../components/PageHeader";
+import { PrimaryButton } from "../components/PrimaryButton";
+import { useSeo } from "../hooks/useSeo";
+import { fetchSpend } from "../lib/api";
+import { formatMoney, formatNumber } from "../lib/format";
 
 export function SpendPage() {
-  usePageTitle('Smart Spend')
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [amount, setAmount] = useState(searchParams.get('amount') || '1000')
+  useSeo(
+    "Smart Spend",
+    "Compare bank, airport, multi-currency card, and transfer FX fees on your spend.",
+  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [amount, setAmount] = useState(searchParams.get("amount") || "1000");
   const [currency, setCurrency] = useState(
-    (searchParams.get('currency') || 'USD').toUpperCase(),
-  )
-  const [result, setResult] = useState<SpendCompareResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+    (searchParams.get("currency") || "USD").toUpperCase(),
+  );
+  const [result, setResult] = useState<SpendCompareResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const run = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      setResult(await fetchSpend(Number(amount) || 0, currency))
-      const params = new URLSearchParams()
-      params.set('amount', amount)
-      params.set('currency', currency)
-      setSearchParams(params, { replace: true })
+      setResult(await fetchSpend(Number(amount) || 0, currency));
+      const params = new URLSearchParams();
+      params.set("amount", amount);
+      params.set("currency", currency);
+      setSearchParams(params, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to compare fees')
+      setError(err instanceof Error ? err.message : "Failed to compare fees");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [amount, currency, setSearchParams])
+  }, [amount, currency, setSearchParams]);
 
   useEffect(() => {
-    if (searchParams.get('amount') || searchParams.get('currency')) {
-      void run()
+    if (searchParams.get("amount") || searchParams.get("currency")) {
+      void run();
     }
     // Deep-link auto-run once
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   return (
     <main className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
@@ -71,7 +74,11 @@ export function SpendPage() {
           />
         </label>
         <div className="flex items-end">
-          <PrimaryButton className="w-full" loading={loading} onClick={() => void run()}>
+          <PrimaryButton
+            className="w-full"
+            loading={loading}
+            onClick={() => void run()}
+          >
             Compare fees
           </PrimaryButton>
         </div>
@@ -80,10 +87,10 @@ export function SpendPage() {
       {result && (
         <section className="bento space-y-3 p-5">
           <p className="text-sm text-muted">
-            Best option saves about{' '}
+            Best option saves about{" "}
             <span className="tabular text-emerald">
               {formatMoney(result.savingsVsWorst, result.currency)}
-            </span>{' '}
+            </span>{" "}
             vs the worst fee on {formatMoney(result.amount, result.currency)}.
           </p>
           <div className="grid gap-2">
@@ -91,7 +98,7 @@ export function SpendPage() {
               <div
                 key={s.id}
                 className={`surface flex flex-wrap items-center justify-between gap-3 p-4 ${
-                  s.id === result.bestId ? 'border-emerald/35' : ''
+                  s.id === result.bestId ? "border-emerald/35" : ""
                 }`}
               >
                 <div>
@@ -116,10 +123,11 @@ export function SpendPage() {
             ))}
           </div>
           <p className="text-xs text-muted">
-            Placeholder CTAs for multi-currency cards / transfer partners can plug in here.
+            Placeholder CTAs for multi-currency cards / transfer partners can
+            plug in here.
           </p>
         </section>
       )}
     </main>
-  )
+  );
 }

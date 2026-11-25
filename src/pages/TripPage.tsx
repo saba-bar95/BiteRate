@@ -1,114 +1,135 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import type { TripPlanResult } from '@shared/features'
-import { CitySelect } from '../components/CitySelect'
-import { ErrorBanner } from '../components/ErrorBanner'
-import { PageHeader } from '../components/PageHeader'
-import { PrimaryButton } from '../components/PrimaryButton'
-import { useCitiesCatalog } from '../hooks/useCitiesCatalog'
-import { usePageTitle } from '../hooks/usePageTitle'
-import { fetchTrip } from '../lib/api'
-import { formatMoney, formatNumber } from '../lib/format'
-import { loadLocalSync, saveLocalSync, uid } from '../lib/storage'
-import { TRIP_RESTORE_KEY } from '../lib/tripRestore'
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import type { TripPlanResult } from "@shared/features";
+import { CitySelect } from "../components/CitySelect";
+import { ErrorBanner } from "../components/ErrorBanner";
+import { PageHeader } from "../components/PageHeader";
+import { PrimaryButton } from "../components/PrimaryButton";
+import { useCitiesCatalog } from "../hooks/useCitiesCatalog";
+import { useSeo } from "../hooks/useSeo";
+import { fetchTrip } from "../lib/api";
+import { formatMoney, formatNumber } from "../lib/format";
+import { loadLocalSync, saveLocalSync, uid } from "../lib/storage";
+import { TRIP_RESTORE_KEY } from "../lib/tripRestore";
 
 export function TripPage() {
-  usePageTitle('Trip planner')
-  const { cities, loading: catalogLoading, error: catalogError, reload } =
-    useCitiesCatalog()
-  const [searchParams, setSearchParams] = useSearchParams()
+  useSeo(
+    "Trip planner",
+    "Estimate multi-city trip spend for meals, transit, lodging, and local dishes.",
+  );
+  const {
+    cities,
+    loading: catalogLoading,
+    error: catalogError,
+    reload,
+  } = useCitiesCatalog();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [homeCurrency, setHomeCurrency] = useState(
-    searchParams.get('currency') || 'USD',
-  )
+    searchParams.get("currency") || "USD",
+  );
   const [stops, setStops] = useState([
-    { citySlug: searchParams.get('s0') || 'tbilisi', days: Number(searchParams.get('d0')) || 4 },
-    { citySlug: searchParams.get('s1') || 'yerevan', days: Number(searchParams.get('d1')) || 3 },
-    { citySlug: searchParams.get('s2') || 'istanbul', days: Number(searchParams.get('d2')) || 3 },
-  ])
-  const [result, setResult] = useState<TripPlanResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [tripName, setTripName] = useState(searchParams.get('name') || 'Caucasus & Bosphorus')
-  const [toast, setToast] = useState<string | null>(null)
+    {
+      citySlug: searchParams.get("s0") || "tbilisi",
+      days: Number(searchParams.get("d0")) || 4,
+    },
+    {
+      citySlug: searchParams.get("s1") || "yerevan",
+      days: Number(searchParams.get("d1")) || 3,
+    },
+    {
+      citySlug: searchParams.get("s2") || "istanbul",
+      days: Number(searchParams.get("d2")) || 3,
+    },
+  ]);
+  const [result, setResult] = useState<TripPlanResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [tripName, setTripName] = useState(
+    searchParams.get("name") || "Caucasus & Bosphorus",
+  );
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    const tripId = searchParams.get('trip')
-    if (!tripId) return
+    const tripId = searchParams.get("trip");
+    if (!tripId) return;
     try {
-      const raw = sessionStorage.getItem(TRIP_RESTORE_KEY)
+      const raw = sessionStorage.getItem(TRIP_RESTORE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as {
-          id: string
-          name: string
-          plan: { homeCurrency: string; stops: Array<{ citySlug: string; days: number }> }
-        }
+          id: string;
+          name: string;
+          plan: {
+            homeCurrency: string;
+            stops: Array<{ citySlug: string; days: number }>;
+          };
+        };
         if (parsed.id === tripId) {
-          setTripName(parsed.name)
-          setHomeCurrency(parsed.plan.homeCurrency)
-          setStops(parsed.plan.stops)
+          setTripName(parsed.name);
+          setHomeCurrency(parsed.plan.homeCurrency);
+          setStops(parsed.plan.stops);
         }
       } else {
-        const saved = loadLocalSync().trips.find((t) => t.id === tripId)
+        const saved = loadLocalSync().trips.find((t) => t.id === tripId);
         if (saved) {
-          setTripName(saved.name)
-          setHomeCurrency(saved.plan.homeCurrency)
-          setStops(saved.plan.stops)
+          setTripName(saved.name);
+          setHomeCurrency(saved.plan.homeCurrency);
+          setStops(saved.plan.stops);
         }
       }
     } catch {
       // ignore
     }
-  }, [searchParams])
+  }, [searchParams]);
 
   const syncUrl = useCallback(() => {
-    const params = new URLSearchParams()
-    params.set('currency', homeCurrency)
-    params.set('name', tripName)
+    const params = new URLSearchParams();
+    params.set("currency", homeCurrency);
+    params.set("name", tripName);
     stops.forEach((s, i) => {
-      params.set(`s${i}`, s.citySlug)
-      params.set(`d${i}`, String(s.days))
-    })
-    const tripId = searchParams.get('trip')
-    if (tripId) params.set('trip', tripId)
-    setSearchParams(params, { replace: true })
-  }, [homeCurrency, searchParams, setSearchParams, stops, tripName])
+      params.set(`s${i}`, s.citySlug);
+      params.set(`d${i}`, String(s.days));
+    });
+    const tripId = searchParams.get("trip");
+    if (tripId) params.set("trip", tripId);
+    setSearchParams(params, { replace: true });
+  }, [homeCurrency, searchParams, setSearchParams, stops, tripName]);
 
   const run = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      const data = await fetchTrip({ homeCurrency, stops })
-      setResult(data)
-      syncUrl()
+      const data = await fetchTrip({ homeCurrency, stops });
+      setResult(data);
+      syncUrl();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed')
+      setError(err instanceof Error ? err.message : "Failed");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [homeCurrency, stops, syncUrl])
+  }, [homeCurrency, stops, syncUrl]);
 
   useEffect(() => {
-    void run()
+    void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   const saveTrip = () => {
-    const data = loadLocalSync()
+    const data = loadLocalSync();
     saveLocalSync({
       ...data,
       trips: [
         {
-          id: uid('trip'),
+          id: uid("trip"),
           name: tripName,
           plan: { homeCurrency, stops },
           savedAt: new Date().toISOString(),
         },
         ...data.trips,
       ].slice(0, 20),
-    })
-    setToast('Trip saved locally')
-    window.setTimeout(() => setToast(null), 2000)
-  }
+    });
+    setToast("Trip saved locally");
+    window.setTimeout(() => setToast(null), 2000);
+  };
 
   return (
     <main className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
@@ -120,14 +141,18 @@ export function TripPage() {
 
       {(error || catalogError) && (
         <ErrorBanner
-          message={error || catalogError || ''}
+          message={error || catalogError || ""}
           onRetry={() => {
-            if (catalogError) reload()
-            else void run()
+            if (catalogError) reload();
+            else void run();
           }}
         />
       )}
-      {toast && <p className="text-sm text-emerald" role="status">{toast}</p>}
+      {toast && (
+        <p className="text-sm text-emerald" role="status">
+          {toast}
+        </p>
+      )}
 
       <section className="bento space-y-3 p-5">
         <div className="grid gap-3 sm:grid-cols-3">
@@ -157,9 +182,9 @@ export function TripPage() {
               cities={cities}
               disabled={catalogLoading}
               onChange={(slug) => {
-                const next = [...stops]
-                next[i] = { ...stop, citySlug: slug }
-                setStops(next)
+                const next = [...stops];
+                next[i] = { ...stop, citySlug: slug };
+                setStops(next);
               }}
             />
             <label className="text-sm text-muted">
@@ -169,9 +194,9 @@ export function TripPage() {
                 min={1}
                 value={stop.days}
                 onChange={(e) => {
-                  const next = [...stops]
-                  next[i] = { ...stop, days: Number(e.target.value) || 1 }
-                  setStops(next)
+                  const next = [...stops];
+                  next[i] = { ...stop, days: Number(e.target.value) || 1 };
+                  setStops(next);
                 }}
                 className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
               />
@@ -191,7 +216,10 @@ export function TripPage() {
             type="button"
             className="cursor-pointer rounded-md border border-white/12 px-3 py-2 text-sm"
             onClick={() =>
-              setStops([...stops, { citySlug: cities[0]?.slug || 'lisbon', days: 3 }])
+              setStops([
+                ...stops,
+                { citySlug: cities[0]?.slug || "lisbon", days: 3 },
+              ])
             }
           >
             Add stop
@@ -228,10 +256,15 @@ export function TripPage() {
                 </div>
                 <div className="mt-1 grid grid-cols-2 gap-2 text-xs text-muted sm:grid-cols-4">
                   <span>Meals {formatMoney(s.meals, result.homeCurrency)}</span>
-                  <span>Transit {formatMoney(s.transit, result.homeCurrency)}</span>
-                  <span>Lodging {formatMoney(s.estimatedLodging, result.homeCurrency)}</span>
                   <span>
-                    Dish culture {formatNumber(s.dishPortions, 1)} ·{' '}
+                    Transit {formatMoney(s.transit, result.homeCurrency)}
+                  </span>
+                  <span>
+                    Lodging{" "}
+                    {formatMoney(s.estimatedLodging, result.homeCurrency)}
+                  </span>
+                  <span>
+                    Dish culture {formatNumber(s.dishPortions, 1)} ·{" "}
                     {formatMoney(s.dishCost, result.homeCurrency)}
                   </span>
                 </div>
@@ -242,5 +275,5 @@ export function TripPage() {
         </section>
       )}
     </main>
-  )
+  );
 }

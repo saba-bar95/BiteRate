@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import type { FxStoryResult } from '@shared/features'
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import type { FxStoryResult } from "@shared/features";
 import {
   Bar,
   BarChart,
@@ -8,63 +8,74 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts'
-import { CitySelect } from '../components/CitySelect'
-import { ErrorBanner } from '../components/ErrorBanner'
-import { PageHeader } from '../components/PageHeader'
-import { PrimaryButton } from '../components/PrimaryButton'
-import { useCitiesCatalog } from '../hooks/useCitiesCatalog'
-import { usePageTitle } from '../hooks/usePageTitle'
-import { fetchStory } from '../lib/api'
-import { formatNumber } from '../lib/format'
+} from "recharts";
+import { CitySelect } from "../components/CitySelect";
+import { ErrorBanner } from "../components/ErrorBanner";
+import { PageHeader } from "../components/PageHeader";
+import { PrimaryButton } from "../components/PrimaryButton";
+import { useCitiesCatalog } from "../hooks/useCitiesCatalog";
+import { useSeo } from "../hooks/useSeo";
+import { fetchStory } from "../lib/api";
+import { formatNumber } from "../lib/format";
 
 function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(false)
+  const [reduced, setReduced] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReduced(mq.matches)
-    const onChange = () => setReduced(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return reduced
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(mq.matches);
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
 }
 
 export function StoryPage() {
-  usePageTitle('FX Story')
-  const { cities, loading: catalogLoading, error: catalogError, reload } =
-    useCitiesCatalog()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [fromSlug, setFrom] = useState(searchParams.get('from') || 'new-york')
-  const [toSlug, setTo] = useState(searchParams.get('to') || 'tbilisi')
-  const [budget, setBudget] = useState(searchParams.get('budget') || '100')
-  const [story, setStory] = useState<FxStoryResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const reducedMotion = usePrefersReducedMotion()
+  useSeo(
+    "FX Story",
+    "See how FX shifts changed how many local dishes your budget could buy over time.",
+  );
+  const {
+    cities,
+    loading: catalogLoading,
+    error: catalogError,
+    reload,
+  } = useCitiesCatalog();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [fromSlug, setFrom] = useState(searchParams.get("from") || "new-york");
+  const [toSlug, setTo] = useState(searchParams.get("to") || "tbilisi");
+  const [budget, setBudget] = useState(searchParams.get("budget") || "100");
+  const [story, setStory] = useState<FxStoryResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const reducedMotion = usePrefersReducedMotion();
 
   const run = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      setStory(await fetchStory(fromSlug, toSlug, Number(budget) || 100))
+      setStory(await fetchStory(fromSlug, toSlug, Number(budget) || 100));
       setSearchParams(
         { from: fromSlug, to: toSlug, budget },
         { replace: true },
-      )
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to build story')
+      setError(err instanceof Error ? err.message : "Failed to build story");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [budget, fromSlug, setSearchParams, toSlug])
+  }, [budget, fromSlug, setSearchParams, toSlug]);
 
   useEffect(() => {
-    if (searchParams.get('from') || searchParams.get('to') || searchParams.get('budget')) {
-      void run()
+    if (
+      searchParams.get("from") ||
+      searchParams.get("to") ||
+      searchParams.get("budget")
+    ) {
+      void run();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   return (
     <main className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
@@ -75,7 +86,7 @@ export function StoryPage() {
 
       {(error || catalogError) && (
         <ErrorBanner
-          message={error || catalogError || ''}
+          message={error || catalogError || ""}
           onRetry={() => (catalogError ? reload() : void run())}
         />
       )}
@@ -104,7 +115,11 @@ export function StoryPage() {
           />
         </label>
         <div className="flex items-end">
-          <PrimaryButton className="w-full" loading={loading} onClick={() => void run()}>
+          <PrimaryButton
+            className="w-full"
+            loading={loading}
+            onClick={() => void run()}
+          >
             Build story
           </PrimaryButton>
         </div>
@@ -113,7 +128,8 @@ export function StoryPage() {
       {story && (
         <section className="bento space-y-4 p-5">
           <h2 className="display text-xl">
-            {story.budget} {story.fromCurrency} → {story.dishName} in {story.cityName}
+            {story.budget} {story.fromCurrency} → {story.dishName} in{" "}
+            {story.cityName}
           </h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -122,8 +138,8 @@ export function StoryPage() {
                 <YAxis stroke="#9a968c" fontSize={11} />
                 <Tooltip
                   contentStyle={{
-                    background: 'var(--color-panel, #151513)',
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: "var(--color-panel, #151513)",
+                    border: "1px solid rgba(255,255,255,0.1)",
                   }}
                 />
                 <Bar
@@ -151,5 +167,5 @@ export function StoryPage() {
         </section>
       )}
     </main>
-  )
+  );
 }

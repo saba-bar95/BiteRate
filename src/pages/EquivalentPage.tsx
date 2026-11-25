@@ -1,30 +1,37 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import type { WageEquivalentResult } from '@shared/features'
-import { CitySelect } from '../components/CitySelect'
-import { ErrorBanner } from '../components/ErrorBanner'
-import { PageHeader } from '../components/PageHeader'
-import { PrimaryButton } from '../components/PrimaryButton'
-import { useCitiesCatalog } from '../hooks/useCitiesCatalog'
-import { usePageTitle } from '../hooks/usePageTitle'
-import { fetchEquivalent } from '../lib/api'
-import { formatMoney, formatNumber } from '../lib/format'
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import type { WageEquivalentResult } from "@shared/features";
+import { CitySelect } from "../components/CitySelect";
+import { ErrorBanner } from "../components/ErrorBanner";
+import { PageHeader } from "../components/PageHeader";
+import { PrimaryButton } from "../components/PrimaryButton";
+import { useCitiesCatalog } from "../hooks/useCitiesCatalog";
+import { useSeo } from "../hooks/useSeo";
+import { fetchEquivalent } from "../lib/api";
+import { formatMoney, formatNumber } from "../lib/format";
 
 export function EquivalentPage() {
-  usePageTitle('Wage PPP')
-  const { cities, loading: catalogLoading, error: catalogError, reload } =
-    useCitiesCatalog()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [fromSlug, setFrom] = useState(searchParams.get('from') || 'tbilisi')
-  const [toSlug, setTo] = useState(searchParams.get('to') || 'berlin')
-  const [wage, setWage] = useState(searchParams.get('wage') || '1800')
-  const [result, setResult] = useState<WageEquivalentResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  useSeo(
+    "Wage PPP",
+    "Convert a monthly net wage into purchasing-power equivalent lifestyle costs in another city.",
+  );
+  const {
+    cities,
+    loading: catalogLoading,
+    error: catalogError,
+    reload,
+  } = useCitiesCatalog();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [fromSlug, setFrom] = useState(searchParams.get("from") || "tbilisi");
+  const [toSlug, setTo] = useState(searchParams.get("to") || "berlin");
+  const [wage, setWage] = useState(searchParams.get("wage") || "1800");
+  const [result, setResult] = useState<WageEquivalentResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const run = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
       setResult(
         await fetchEquivalent({
@@ -32,26 +39,30 @@ export function EquivalentPage() {
           toSlug,
           monthlyNetWage: Number(wage) || 0,
         }),
-      )
+      );
       const params = new URLSearchParams({
         from: fromSlug,
         to: toSlug,
         wage,
-      })
-      setSearchParams(params, { replace: true })
+      });
+      setSearchParams(params, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed')
+      setError(err instanceof Error ? err.message : "Failed");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [fromSlug, setSearchParams, toSlug, wage])
+  }, [fromSlug, setSearchParams, toSlug, wage]);
 
   useEffect(() => {
-    if (searchParams.get('from') || searchParams.get('to') || searchParams.get('wage')) {
-      void run()
+    if (
+      searchParams.get("from") ||
+      searchParams.get("to") ||
+      searchParams.get("wage")
+    ) {
+      void run();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   return (
     <main className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
@@ -63,7 +74,7 @@ export function EquivalentPage() {
 
       {(error || catalogError) && (
         <ErrorBanner
-          message={error || catalogError || ''}
+          message={error || catalogError || ""}
           onRetry={() => (catalogError ? reload() : void run())}
         />
       )}
@@ -92,7 +103,11 @@ export function EquivalentPage() {
           />
         </label>
         <div className="flex items-end">
-          <PrimaryButton className="w-full" loading={loading} onClick={() => void run()}>
+          <PrimaryButton
+            className="w-full"
+            loading={loading}
+            onClick={() => void run()}
+          >
             Calculate
           </PrimaryButton>
         </div>
@@ -117,17 +132,17 @@ export function EquivalentPage() {
             <div className="surface p-3">
               <div className="text-xs text-muted">Dish portions / month</div>
               <div className="mt-1 text-sm tabular">
-                {formatNumber(result.dishPortionsFrom, 1)} →{' '}
+                {formatNumber(result.dishPortionsFrom, 1)} →{" "}
                 {formatNumber(result.dishPortionsTo, 1)}
               </div>
             </div>
           </div>
           <p className="text-xs text-muted">
-            Rent burden {formatNumber(result.rentBurdenFrom * 100, 1)}% →{' '}
+            Rent burden {formatNumber(result.rentBurdenFrom * 100, 1)}% →{" "}
             {formatNumber(result.rentBurdenTo * 100, 1)}% of wage.
           </p>
         </section>
       )}
     </main>
-  )
+  );
 }

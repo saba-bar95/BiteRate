@@ -1,60 +1,69 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import type { PriceAlert } from '@shared/features'
-import { ErrorBanner } from '../components/ErrorBanner'
-import { PageHeader } from '../components/PageHeader'
-import { PrimaryButton } from '../components/PrimaryButton'
-import { LoadingSpinner } from '../components/LoadingSpinner'
-import { useCitiesCatalog } from '../hooks/useCitiesCatalog'
-import { usePageTitle } from '../hooks/usePageTitle'
-import { checkAlerts } from '../lib/api'
-import { formatPct } from '../lib/format'
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import type { PriceAlert } from "@shared/features";
+import { ErrorBanner } from "../components/ErrorBanner";
+import { PageHeader } from "../components/PageHeader";
+import { PrimaryButton } from "../components/PrimaryButton";
+import { LoadingSpinner } from "../components/LoadingSpinner";
+import { useCitiesCatalog } from "../hooks/useCitiesCatalog";
+import { useSeo } from "../hooks/useSeo";
+import { checkAlerts } from "../lib/api";
+import { formatPct } from "../lib/format";
 import {
   loadLocalSync,
   removeAlert,
   replaceAlerts,
   uid,
   upsertAlert,
-} from '../lib/storage'
+} from "../lib/storage";
 
 export function AlertsPage() {
-  usePageTitle('FX Alerts')
-  const { cities, error: catalogError, reload } = useCitiesCatalog()
+  useSeo(
+    "FX Alerts",
+    "Watch FX pairs and get local threshold alerts for currency moves.",
+  );
+  const { cities, error: catalogError, reload } = useCitiesCatalog();
   const currencies = useMemo(
     () => [...new Set(cities.map((c) => c.currencyCode))].sort(),
     [cities],
-  )
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [alerts, setAlerts] = useState<PriceAlert[]>(() => loadLocalSync().alerts)
-  const [fromCurrency, setFrom] = useState(searchParams.get('from') || 'USD')
-  const [toCurrency, setTo] = useState(searchParams.get('to') || 'GEL')
-  const [threshold, setThreshold] = useState(searchParams.get('threshold') || '-2')
-  const [label, setLabel] = useState(searchParams.get('label') || 'GEL getting cheaper')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [alerts, setAlerts] = useState<PriceAlert[]>(
+    () => loadLocalSync().alerts,
+  );
+  const [fromCurrency, setFrom] = useState(searchParams.get("from") || "USD");
+  const [toCurrency, setTo] = useState(searchParams.get("to") || "GEL");
+  const [threshold, setThreshold] = useState(
+    searchParams.get("threshold") || "-2",
+  );
+  const [label, setLabel] = useState(
+    searchParams.get("label") || "GEL getting cheaper",
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const persist = (next: PriceAlert[]) => {
-    setAlerts(next)
-    replaceAlerts(next)
-  }
+    setAlerts(next);
+    replaceAlerts(next);
+  };
 
   const runCheck = async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      const { alerts: checked } = await checkAlerts(alerts)
-      persist(checked)
+      const { alerts: checked } = await checkAlerts(alerts);
+      persist(checked);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Check failed')
+      setError(err instanceof Error ? err.message : "Check failed");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    if (alerts.length) void runCheck()
+    if (alerts.length) void runCheck();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   return (
     <main className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
@@ -66,7 +75,7 @@ export function AlertsPage() {
 
       {(error || catalogError) && (
         <ErrorBanner
-          message={error || catalogError || ''}
+          message={error || catalogError || ""}
           onRetry={() => (catalogError ? reload() : void runCheck())}
         />
       )}
@@ -121,15 +130,15 @@ export function AlertsPage() {
           className="sm:col-span-2"
           onClick={() => {
             const alert: PriceAlert = {
-              id: uid('alert'),
+              id: uid("alert"),
               fromCurrency,
               toCurrency,
               thresholdPct: Number(threshold) || 0,
               label,
               createdAt: new Date().toISOString(),
-            }
-            upsertAlert(alert)
-            persist([alert, ...alerts])
+            };
+            upsertAlert(alert);
+            persist([alert, ...alerts]);
             setSearchParams(
               {
                 from: fromCurrency,
@@ -138,7 +147,7 @@ export function AlertsPage() {
                 label,
               },
               { replace: true },
-            )
+            );
           }}
         >
           Create alert
@@ -157,12 +166,17 @@ export function AlertsPage() {
             Check now
           </button>
         </div>
-        {alerts.length === 0 && <p className="text-sm text-muted">No alerts yet.</p>}
+        {alerts.length === 0 && (
+          <p className="text-sm text-muted">No alerts yet.</p>
+        )}
         {alerts.map((a) => (
-          <div key={a.id} className="surface flex flex-wrap items-center justify-between gap-2 p-3">
+          <div
+            key={a.id}
+            className="surface flex flex-wrap items-center justify-between gap-2 p-3"
+          >
             <div>
               <div className="font-medium">
-                {a.label}{' '}
+                {a.label}{" "}
                 {a.triggered ? (
                   <span className="text-xs text-emerald">Triggered</span>
                 ) : (
@@ -170,16 +184,16 @@ export function AlertsPage() {
                 )}
               </div>
               <div className="text-xs text-muted">
-                {a.fromCurrency}/{a.toCurrency} ≤ {formatPct(a.thresholdPct)} · last{' '}
-                {formatPct(a.lastChange30dPct)}
+                {a.fromCurrency}/{a.toCurrency} ≤ {formatPct(a.thresholdPct)} ·
+                last {formatPct(a.lastChange30dPct)}
               </div>
             </div>
             <button
               type="button"
               className="cursor-pointer rounded-md border border-white/12 px-3 py-1.5 text-xs text-coral"
               onClick={() => {
-                removeAlert(a.id)
-                persist(alerts.filter((x) => x.id !== a.id))
+                removeAlert(a.id);
+                persist(alerts.filter((x) => x.id !== a.id));
               }}
             >
               Delete
@@ -188,5 +202,5 @@ export function AlertsPage() {
         ))}
       </section>
     </main>
-  )
+  );
 }
