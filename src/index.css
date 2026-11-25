@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+@theme {
+  --color-obsidian: #0c0c0b;
+  --color-panel: #151513;
+  --color-panel-elevated: #1c1c19;
+  --color-border-subtle: rgba(245, 240, 230, 0.09);
+  --color-emerald: #3d9b78;
+  --color-amber: #c9923a;
+  --color-coral: #d45d5d;
+  --color-ink: #efece4;
+  --color-muted: #9a968c;
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-display: "Bricolage Grotesque", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    background-color: var(--color-obsidian);
+    background-image:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 28%),
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(61, 155, 120, 0.07), transparent 55%);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body::before {
+    content: "";
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: rgba(61, 155, 120, 0.35);
+  }
+
+  button,
+  input,
+  select,
+  a {
+    font-family: inherit;
+  }
+
+  button:not(:disabled),
+  select:not(:disabled),
+  a[href],
+  [role='button'],
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@layer utilities {
+  .font-serif {
+    font-family: var(--font-serif);
+  }
+
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  .eyebrow {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  /* Section titles — clean sans, not decorative serif */
+  .display {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+  }
+
+  .brand-mark {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+
+  .glass {
+    background: rgba(21, 21, 19, 0.86);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border-subtle);
+  }
+
+  .bento {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 0.625rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .surface {
+    background: rgba(12, 12, 11, 0.45);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 0.5rem;
+  }
+
+  .fade-in {
+    animation: fade-up 0.4s ease both;
+  }
+
+  .fade-in-delay {
+    animation: fade-up 0.45s ease 0.06s both;
+  }
+
+  .fade-in-delay-2 {
+    animation: fade-up 0.5s ease 0.12s both;
+  }
+
+  .pulse-dot {
+    animation: pulse-soft 2.4s ease-in-out infinite;
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.03)
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 0.5rem;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
