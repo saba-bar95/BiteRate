@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { setLastCompare } from '../lib/lastCompare'
 
 const DEFAULT_FROM = 'new-york'
 const DEFAULT_TO = 'tbilisi'
@@ -8,10 +9,9 @@ const DEFAULT_BUDGET = 100
 export function useComparisonState() {
   const navigate = useNavigate()
   const params = useParams()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
 
   const compareParam = params.compare
-  const citySlug = params.slug
 
   const parsedCompare = useMemo(() => {
     if (compareParam?.includes('-vs-')) {
@@ -22,7 +22,7 @@ export function useComparisonState() {
   }, [compareParam])
 
   const fromSlug = parsedCompare?.from ?? DEFAULT_FROM
-  const toSlug = citySlug ?? parsedCompare?.to ?? DEFAULT_TO
+  const toSlug = parsedCompare?.to ?? DEFAULT_TO
 
   const mode: 'flat' | 'hourly' =
     searchParams.get('mode') === 'hourly' ? 'hourly' : 'flat'
@@ -43,6 +43,7 @@ export function useComparisonState() {
       const qs = new URLSearchParams()
       qs.set('budget', String(nextBudget))
       if (nextMode === 'hourly') qs.set('mode', 'hourly')
+      setLastCompare({ fromSlug: from, toSlug: to, budget: nextBudget, mode: nextMode })
       navigate(`/compare/${from}-vs-${to}?${qs.toString()}`, {
         replace: next.replace ?? false,
       })
@@ -50,16 +51,11 @@ export function useComparisonState() {
     [budget, fromSlug, mode, navigate, toSlug],
   )
 
-  // Normalize bare / or /city/:slug into compare URL
   useEffect(() => {
-    if (citySlug && !compareParam) {
-      syncUrl({ from: DEFAULT_FROM, to: citySlug, replace: true })
-      return
+    if (parsedCompare) {
+      setLastCompare({ fromSlug, toSlug, budget, mode })
     }
-    if (!compareParam && !citySlug) {
-      // landing handled by App default route
-    }
-  }, [citySlug, compareParam, syncUrl])
+  }, [budget, fromSlug, mode, parsedCompare, toSlug])
 
   const setFrom = (slug: string) => syncUrl({ from: slug })
   const setTo = (slug: string) => syncUrl({ to: slug })
@@ -73,9 +69,6 @@ export function useComparisonState() {
     if (mode === 'hourly') qs.set('mode', 'hourly')
     return `${window.location.origin}/compare/${fromSlug}-vs-${toSlug}?${qs}`
   }, [budget, fromSlug, mode, toSlug])
-
-  // keep search params in sync when already on compare path edits via setSearchParams for budget debounce friends
-  void setSearchParams
 
   return {
     fromSlug,

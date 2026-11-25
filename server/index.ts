@@ -78,7 +78,7 @@ app.use('/api/*', async (c, next) => {
           : RATE.default
 
   if (!rateLimit(`${ip}:${heavy ? 'heavy' : write ? 'write' : 'std'}`, limit)) {
-    return c.json({ error: 'Rate limit exceeded. Try again shortly.' }, 429)
+    return c.json({ error: 'Rate limit exceeded. Try again shortly.', code: 'rate_limited' }, 429)
   }
 
   if (write) {
@@ -177,12 +177,18 @@ app.get('/api/cities/catalog', (c) => {
   }
   const iso2 = c.req.query('iso2')?.toUpperCase().slice(0, 2)
   const all = listCities()
-  const cities = filterCities({
+  const matched = filterCities({
     q: q || undefined,
     country: country || undefined,
     currency: currency || undefined,
     iso2: iso2 || undefined,
   })
+  const cities = matched.map((city) => ({
+    slug: city.slug,
+    name: city.name,
+    country: city.country,
+    currencyCode: city.currencyCode,
+  }))
   const byCountry: Record<string, Array<{ slug: string; name: string }>> = {}
   for (const city of all) {
     const bucket = (byCountry[city.country] ??= [])
@@ -191,6 +197,7 @@ app.get('/api/cities/catalog', (c) => {
   for (const key of Object.keys(byCountry)) {
     byCountry[key]!.sort((a, b) => a.name.localeCompare(b.name))
   }
+  c.header('Cache-Control', 'public, max-age=60')
   return c.json({
     cities,
     byCountry,
@@ -204,7 +211,7 @@ app.get('/api/cities/:slug', async (c) => {
   const slug = c.req.param('slug')
   if (!isSlug(slug)) return c.json({ error: 'Invalid city slug' }, 400)
   const city = getCity(slug)
-  if (!city) return c.json({ error: 'City not found' }, 404)
+  if (!city) return c.json({ error: 'City not found', code: 'not_found' }, 404)
   const col = await getColSnapshot(city)
   return c.json({ city, col })
 })
@@ -212,7 +219,7 @@ app.get('/api/cities/:slug', async (c) => {
 app.get('/api/pulse/:fromSlug/:toSlug', async (c) => {
   const fromSlug = requireCitySlug(c.req.param('fromSlug'))
   const toSlug = requireCitySlug(c.req.param('toSlug'))
-  if (!fromSlug || !toSlug) return c.json({ error: 'Unknown city slug' }, 404)
+  if (!fromSlug || !toSlug) return c.json({ error: 'Unknown city slug', code: 'not_found' }, 404)
 
   const budget = parsePositiveNumber(c.req.query('budget') ?? 100, {
     min: 0.01,
@@ -341,6 +348,7 @@ app.get('/api/map', async (c) => {
       generatedAt: payload.generatedAt,
     }
   })
+  c.header('Cache-Control', 'public, max-age=60')
   return c.json(data)
 })
 

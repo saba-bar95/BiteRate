@@ -86,3 +86,53 @@ export function uid(prefix: string) {
       : Math.random().toString(36).slice(2, 14)
   return `${prefix}_${rand}`
 }
+
+function byId<T extends { id: string }>(items: T[]): Map<string, T> {
+  return new Map(items.map((item) => [item.id, item]))
+}
+
+function mergeById<T extends { id: string; createdAt?: string; savedAt?: string }>(
+  local: T[],
+  remote: T[],
+): T[] {
+  const map = byId(local)
+  for (const item of remote) {
+    const existing = map.get(item.id)
+    if (!existing) {
+      map.set(item.id, item)
+      continue
+    }
+    const localTs = Date.parse(existing.savedAt ?? existing.createdAt ?? '') || 0
+    const remoteTs = Date.parse(item.savedAt ?? item.createdAt ?? '') || 0
+    if (remoteTs >= localTs) map.set(item.id, item)
+  }
+  return [...map.values()]
+}
+
+/** Merge cloud + local sync by item id and timestamps (not wholesale replace). */
+export function mergeSyncPayloads(
+  local: UserSyncPayload,
+  remote: UserSyncPayload,
+): { merged: UserSyncPayload; discardedLocal: boolean } {
+  const saved = mergeById(local.saved, remote.saved)
+  const alerts = mergeById(local.alerts, remote.alerts)
+  const trips = mergeById(
+    local.trips as Array<{ id: string; savedAt?: string }>,
+    remote.trips as Array<{ id: string; savedAt?: string }>,
+  ) as UserSyncPayload['trips']
+  const localNewer =
+    Date.parse(local.updatedAt || '') > Date.parse(remote.updatedAt || '')
+  const discardedLocal =
+    local.saved.some((s) => !saved.find((x) => x.id === s.id && x === s)) ||
+    local.alerts.some((a) => !alerts.find((x) => x.id === a.id && x === a)) ||
+    local.trips.some((t) => !trips.find((x) => x.id === t.id && x === t))
+  return {
+    merged: {
+      saved: saved.slice(0, 40),
+      alerts: alerts.slice(0, 20),
+      trips: trips.slice(0, 20),
+      updatedAt: localNewer ? local.updatedAt : remote.updatedAt || new Date().toISOString(),
+    },
+    discardedLocal,
+  }
+}

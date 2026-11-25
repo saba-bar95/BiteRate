@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listCities } from '@shared/cities'
+import { useSearchParams } from 'react-router-dom'
 import type { PriceAlert } from '@shared/features'
+import { ErrorBanner } from '../components/ErrorBanner'
+import { PageHeader } from '../components/PageHeader'
+import { PrimaryButton } from '../components/PrimaryButton'
 import { LoadingSpinner } from '../components/LoadingSpinner'
+import { useCitiesCatalog } from '../hooks/useCitiesCatalog'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { checkAlerts } from '../lib/api'
 import { formatPct } from '../lib/format'
 import {
@@ -13,17 +18,20 @@ import {
 } from '../lib/storage'
 
 export function AlertsPage() {
-  const cities = useMemo(() => listCities(), [])
+  usePageTitle('FX Alerts')
+  const { cities, error: catalogError, reload } = useCitiesCatalog()
   const currencies = useMemo(
     () => [...new Set(cities.map((c) => c.currencyCode))].sort(),
     [cities],
   )
+  const [searchParams, setSearchParams] = useSearchParams()
   const [alerts, setAlerts] = useState<PriceAlert[]>(() => loadLocalSync().alerts)
-  const [fromCurrency, setFrom] = useState('USD')
-  const [toCurrency, setTo] = useState('GEL')
-  const [threshold, setThreshold] = useState('-2')
-  const [label, setLabel] = useState('GEL getting cheaper')
+  const [fromCurrency, setFrom] = useState(searchParams.get('from') || 'USD')
+  const [toCurrency, setTo] = useState(searchParams.get('to') || 'GEL')
+  const [threshold, setThreshold] = useState(searchParams.get('threshold') || '-2')
+  const [label, setLabel] = useState(searchParams.get('label') || 'GEL getting cheaper')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const persist = (next: PriceAlert[]) => {
     setAlerts(next)
@@ -32,9 +40,12 @@ export function AlertsPage() {
 
   const runCheck = async () => {
     setLoading(true)
+    setError(null)
     try {
       const { alerts: checked } = await checkAlerts(alerts)
       persist(checked)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Check failed')
     } finally {
       setLoading(false)
     }
@@ -47,53 +58,67 @@ export function AlertsPage() {
 
   return (
     <main className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
-      <div>
-        <p className="eyebrow">FX alerts</p>
-        <h1 className="display mt-1 text-3xl">Watch currency moves</h1>
-        <p className="mt-2 text-sm text-muted">
-          Alerts are stored locally (and syncable). They evaluate when you open this page —
-          email/push can plug in later.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="FX alerts"
+        title="Watch currency moves"
+        description="Alerts are stored locally (and syncable). They evaluate when you open this page — email/push can plug in later."
+      />
+
+      {(error || catalogError) && (
+        <ErrorBanner
+          message={error || catalogError || ''}
+          onRetry={() => (catalogError ? reload() : void runCheck())}
+        />
+      )}
 
       <section className="bento grid gap-3 p-5 sm:grid-cols-2">
-        <select
-          value={fromCurrency}
-          onChange={(e) => setFrom(e.target.value)}
-          className="h-10 cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
-        >
-          {currencies.map((c) => (
-            <option key={c} value={c}>
-              From {c}
-            </option>
-          ))}
-        </select>
-        <select
-          value={toCurrency}
-          onChange={(e) => setTo(e.target.value)}
-          className="h-10 cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
-        >
-          {currencies.map((c) => (
-            <option key={c} value={c}>
-              To {c}
-            </option>
-          ))}
-        </select>
-        <input
-          value={threshold}
-          onChange={(e) => setThreshold(e.target.value)}
-          className="h-10 rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
-          placeholder="Threshold % (e.g. -2)"
-        />
-        <input
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          className="h-10 rounded-md border border-white/10 bg-panel px-3 text-sm"
-          placeholder="Label"
-        />
-        <button
-          type="button"
-          className="cursor-pointer rounded-md border border-emerald/30 bg-emerald/10 px-3 py-2 text-sm text-emerald sm:col-span-2"
+        <label className="text-sm text-muted">
+          From currency
+          <select
+            value={fromCurrency}
+            onChange={(e) => setFrom(e.target.value)}
+            className="mt-1 h-10 w-full cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
+          >
+            {currencies.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm text-muted">
+          To currency
+          <select
+            value={toCurrency}
+            onChange={(e) => setTo(e.target.value)}
+            className="mt-1 h-10 w-full cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
+          >
+            {currencies.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm text-muted">
+          Threshold %
+          <input
+            value={threshold}
+            onChange={(e) => setThreshold(e.target.value)}
+            className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
+            placeholder="e.g. -2"
+          />
+        </label>
+        <label className="text-sm text-muted">
+          Label
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm"
+          />
+        </label>
+        <PrimaryButton
+          className="sm:col-span-2"
           onClick={() => {
             const alert: PriceAlert = {
               id: uid('alert'),
@@ -105,10 +130,19 @@ export function AlertsPage() {
             }
             upsertAlert(alert)
             persist([alert, ...alerts])
+            setSearchParams(
+              {
+                from: fromCurrency,
+                to: toCurrency,
+                threshold,
+                label,
+              },
+              { replace: true },
+            )
           }}
         >
           Create alert
-        </button>
+        </PrimaryButton>
       </section>
 
       <section className="bento space-y-3 p-5">
@@ -117,15 +151,13 @@ export function AlertsPage() {
           <button
             type="button"
             onClick={() => void runCheck()}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-white/12 px-3 py-1.5 text-xs"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-white/12 px-3 py-1.5 text-sm"
           >
             {loading ? <LoadingSpinner size="sm" /> : null}
             Check now
           </button>
         </div>
-        {alerts.length === 0 && (
-          <p className="text-sm text-muted">No alerts yet.</p>
-        )}
+        {alerts.length === 0 && <p className="text-sm text-muted">No alerts yet.</p>}
         {alerts.map((a) => (
           <div key={a.id} className="surface flex flex-wrap items-center justify-between gap-2 p-3">
             <div>

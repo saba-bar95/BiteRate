@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ErrorBanner } from '../components/ErrorBanner'
 import { LoadingSpinner } from '../components/LoadingSpinner'
+import { PageHeader } from '../components/PageHeader'
+import { useCitiesCatalog } from '../hooks/useCitiesCatalog'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { fetchMap } from '../lib/api'
+import { getLastCompareFrom } from '../lib/lastCompare'
 import { formatNumber } from '../lib/format'
 
 type Point = {
@@ -21,85 +26,178 @@ function project(lat: number, lon: number, w: number, h: number) {
 }
 
 export function MapPage() {
+  usePageTitle('Map')
+  const { byCountry } = useCitiesCatalog()
   const [points, setPoints] = useState<Point[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [active, setActive] = useState<Point | null>(null)
+  const [query, setQuery] = useState('')
+  const [countryFilter, setCountryFilter] = useState('all')
+  const [retryKey, setRetryKey] = useState(0)
   const w = 960
   const h = 480
+  const fromSlug = getLastCompareFrom() || 'new-york'
+  const countries = useMemo(() => Object.keys(byCountry).sort(), [byCountry])
 
   useEffect(() => {
+    setLoading(true)
+    setError(null)
     fetchMap()
       .then((d) => setPoints(d.points))
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'Failed to load map'),
+      )
       .finally(() => setLoading(false))
-  }, [])
+  }, [retryKey])
 
-  const max = useMemo(
-    () => Math.max(...points.map((p) => p.score), 1),
-    [points],
-  )
+  const max = useMemo(() => Math.max(...points.map((p) => p.score), 1), [points])
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return points.filter((p) => {
+      if (countryFilter !== 'all' && p.country !== countryFilter) return false
+      if (!q) return true
+      return (
+        p.name.toLowerCase().includes(q) ||
+        p.country.toLowerCase().includes(q) ||
+        p.dish.toLowerCase().includes(q)
+      )
+    })
+  }, [points, query, countryFilter])
 
   return (
     <main className="mx-auto max-w-6xl space-y-4 px-4 py-6 sm:px-6">
-      <div>
-        <p className="eyebrow">Map explorer</p>
-        <h1 className="display mt-1 text-3xl">Purchasing power around the world</h1>
-      </div>
+      <PageHeader
+        eyebrow="Map explorer"
+        title="Purchasing power around the world"
+        description="Select a city from the map or the searchable list."
+      />
 
-      <section className="bento overflow-hidden p-3 sm:p-5">
+      {error && (
+        <ErrorBanner message={error} onRetry={() => setRetryKey((k) => k + 1)} />
+      )}
+
+      <section className="bento grid gap-4 overflow-hidden p-3 sm:p-5 lg:grid-cols-[1fr_280px]">
         {loading ? (
-          <div className="flex h-72 items-center justify-center gap-2 text-sm text-muted">
+          <div className="flex h-72 items-center justify-center gap-2 text-sm text-muted lg:col-span-2">
             <LoadingSpinner /> Loading map…
           </div>
         ) : (
-          <div className="relative w-full overflow-x-auto">
-            <svg viewBox={`0 0 ${w} ${h}`} className="min-w-full rounded-md bg-[#10100e]">
-              <rect width={w} height={h} fill="#10100e" />
-              {[...Array(12)].map((_, i) => (
-                <line
-                  key={`v${i}`}
-                  x1={(w / 12) * i}
-                  x2={(w / 12) * i}
-                  y1={0}
-                  y2={h}
-                  stroke="rgba(255,255,255,0.04)"
+          <>
+            <div className="relative w-full overflow-x-auto">
+              <svg
+                viewBox={`0 0 ${w} ${h}`}
+                className="min-w-full rounded-md bg-obsidian"
+                role="img"
+                aria-label="World map of purchasing power scores"
+              >
+                <rect width={w} height={h} className="fill-obsidian" />
+                {[...Array(12)].map((_, i) => (
+                  <line
+                    key={`v${i}`}
+                    x1={(w / 12) * i}
+                    x2={(w / 12) * i}
+                    y1={0}
+                    y2={h}
+                    stroke="rgba(255,255,255,0.04)"
+                  />
+                ))}
+                {[...Array(6)].map((_, i) => (
+                  <line
+                    key={`h${i}`}
+                    y1={(h / 6) * i}
+                    y2={(h / 6) * i}
+                    x1={0}
+                    x2={w}
+                    stroke="rgba(255,255,255,0.04)"
+                  />
+                ))}
+                {points.map((p) => {
+                  const { x, y } = project(p.lat, p.lon, w, h)
+                  const r = 3 + (p.score / max) * 7
+                  const selected = p === active
+                  return (
+                    <circle
+                      key={p.slug}
+                      cx={x}
+                      cy={y}
+                      r={r}
+                      fill={selected ? '#c9923a' : '#3d9b78'}
+                      fillOpacity={0.85}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${p.name}, score ${p.score}`}
+                      className="cursor-pointer outline-none focus:stroke-amber focus:stroke-2"
+                      onClick={() => setActive(p)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setActive(p)
+                        }
+                      }}
+                    >
+                      <title>
+                        {p.name}: score {p.score}
+                      </title>
+                    </circle>
+                  )
+                })}
+              </svg>
+            </div>
+
+            <div className="flex max-h-[28rem] flex-col gap-2">
+              <label className="text-sm text-muted">
+                Find a city
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search…"
+                  className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm outline-none focus:border-emerald/50"
                 />
-              ))}
-              {[...Array(6)].map((_, i) => (
-                <line
-                  key={`h${i}`}
-                  y1={(h / 6) * i}
-                  y2={(h / 6) * i}
-                  x1={0}
-                  x2={w}
-                  stroke="rgba(255,255,255,0.04)"
-                />
-              ))}
-              {points.map((p) => {
-                const { x, y } = project(p.lat, p.lon, w, h)
-                const r = 3 + (p.score / max) * 7
-                return (
-                  <circle
-                    key={p.slug}
-                    cx={x}
-                    cy={y}
-                    r={r}
-                    fill={p === active ? '#c9923a' : '#3d9b78'}
-                    fillOpacity={0.85}
-                    className="cursor-pointer"
-                    onClick={() => setActive(p)}
-                  >
-                    <title>
-                      {p.name}: score {p.score}
-                    </title>
-                  </circle>
-                )
-              })}
-            </svg>
-          </div>
+              </label>
+              <label className="text-sm text-muted">
+                Country
+                <select
+                  value={countryFilter}
+                  onChange={(e) => setCountryFilter(e.target.value)}
+                  className="mt-1 h-10 w-full cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
+                >
+                  <option value="all">All countries</option>
+                  {countries.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <ul className="flex-1 space-y-1 overflow-y-auto rounded-md border border-white/8 p-1">
+                {filtered.slice(0, 80).map((p) => (
+                  <li key={p.slug}>
+                    <button
+                      type="button"
+                      onClick={() => setActive(p)}
+                      className={`flex w-full cursor-pointer items-center justify-between rounded-md px-2.5 py-2 text-left text-sm transition ${
+                        active?.slug === p.slug
+                          ? 'bg-emerald/15 text-ink'
+                          : 'text-muted hover:bg-white/5 hover:text-ink'
+                      }`}
+                    >
+                      <span>
+                        {p.name}
+                        <span className="block text-xs text-muted">{p.country}</span>
+                      </span>
+                      <span className="tabular text-emerald">{formatNumber(p.score, 0)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
         )}
 
         {active && (
-          <div className="mt-4 surface flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="surface flex flex-wrap items-center justify-between gap-3 p-4 lg:col-span-2">
             <div>
               <div className="font-medium">
                 {active.name}, {active.country}
@@ -116,7 +214,7 @@ export function MapPage() {
                 City page
               </Link>
               <Link
-                to={`/compare/new-york-vs-${active.slug}?budget=100`}
+                to={`/compare/${fromSlug}-vs-${active.slug}?budget=100`}
                 className="cursor-pointer rounded-md border border-emerald/30 bg-emerald/10 px-3 py-2 text-sm text-emerald"
               >
                 Compare

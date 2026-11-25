@@ -1,36 +1,91 @@
-import { useEffect, useMemo, useState } from 'react'
-import { listCities } from '@shared/cities'
+import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { TripPlanResult } from '@shared/features'
-import { LoadingSpinner } from '../components/LoadingSpinner'
+import { CitySelect } from '../components/CitySelect'
+import { ErrorBanner } from '../components/ErrorBanner'
+import { PageHeader } from '../components/PageHeader'
+import { PrimaryButton } from '../components/PrimaryButton'
+import { useCitiesCatalog } from '../hooks/useCitiesCatalog'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { fetchTrip } from '../lib/api'
 import { formatMoney, formatNumber } from '../lib/format'
 import { loadLocalSync, saveLocalSync, uid } from '../lib/storage'
+import { TRIP_RESTORE_KEY } from '../lib/tripRestore'
 
 export function TripPage() {
-  const cities = useMemo(() => listCities(), [])
-  const [homeCurrency, setHomeCurrency] = useState('USD')
+  usePageTitle('Trip planner')
+  const { cities, loading: catalogLoading, error: catalogError, reload } =
+    useCitiesCatalog()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [homeCurrency, setHomeCurrency] = useState(
+    searchParams.get('currency') || 'USD',
+  )
   const [stops, setStops] = useState([
-    { citySlug: 'tbilisi', days: 4 },
-    { citySlug: 'yerevan', days: 3 },
-    { citySlug: 'istanbul', days: 3 },
+    { citySlug: searchParams.get('s0') || 'tbilisi', days: Number(searchParams.get('d0')) || 4 },
+    { citySlug: searchParams.get('s1') || 'yerevan', days: Number(searchParams.get('d1')) || 3 },
+    { citySlug: searchParams.get('s2') || 'istanbul', days: Number(searchParams.get('d2')) || 3 },
   ])
   const [result, setResult] = useState<TripPlanResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [tripName, setTripName] = useState('Caucasus & Bosphorus')
+  const [tripName, setTripName] = useState(searchParams.get('name') || 'Caucasus & Bosphorus')
+  const [toast, setToast] = useState<string | null>(null)
 
-  const run = async () => {
+  useEffect(() => {
+    const tripId = searchParams.get('trip')
+    if (!tripId) return
+    try {
+      const raw = sessionStorage.getItem(TRIP_RESTORE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as {
+          id: string
+          name: string
+          plan: { homeCurrency: string; stops: Array<{ citySlug: string; days: number }> }
+        }
+        if (parsed.id === tripId) {
+          setTripName(parsed.name)
+          setHomeCurrency(parsed.plan.homeCurrency)
+          setStops(parsed.plan.stops)
+        }
+      } else {
+        const saved = loadLocalSync().trips.find((t) => t.id === tripId)
+        if (saved) {
+          setTripName(saved.name)
+          setHomeCurrency(saved.plan.homeCurrency)
+          setStops(saved.plan.stops)
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [searchParams])
+
+  const syncUrl = useCallback(() => {
+    const params = new URLSearchParams()
+    params.set('currency', homeCurrency)
+    params.set('name', tripName)
+    stops.forEach((s, i) => {
+      params.set(`s${i}`, s.citySlug)
+      params.set(`d${i}`, String(s.days))
+    })
+    const tripId = searchParams.get('trip')
+    if (tripId) params.set('trip', tripId)
+    setSearchParams(params, { replace: true })
+  }, [homeCurrency, searchParams, setSearchParams, stops, tripName])
+
+  const run = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const data = await fetchTrip({ homeCurrency, stops })
       setResult(data)
+      syncUrl()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed')
     } finally {
       setLoading(false)
     }
-  }
+  }, [homeCurrency, stops, syncUrl])
 
   useEffect(() => {
     void run()
@@ -51,21 +106,32 @@ export function TripPage() {
         ...data.trips,
       ].slice(0, 20),
     })
+    setToast('Trip saved locally')
+    window.setTimeout(() => setToast(null), 2000)
   }
 
   return (
     <main className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
-      <div>
-        <p className="eyebrow">Trip budget planner</p>
-        <h1 className="display mt-1 text-3xl">Multi-city itinerary cost</h1>
-        <p className="mt-2 text-sm text-muted">
-          Estimate meals, transit, lodging, and signature-dish spend across stops.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Trip budget planner"
+        title="Multi-city itinerary cost"
+        description="Estimate meals, transit, lodging, and signature-dish spend across stops."
+      />
+
+      {(error || catalogError) && (
+        <ErrorBanner
+          message={error || catalogError || ''}
+          onRetry={() => {
+            if (catalogError) reload()
+            else void run()
+          }}
+        />
+      )}
+      {toast && <p className="text-sm text-emerald" role="status">{toast}</p>}
 
       <section className="bento space-y-3 p-5">
         <div className="grid gap-3 sm:grid-cols-3">
-          <label className="text-xs text-muted">
+          <label className="text-sm text-muted">
             Trip name
             <input
               value={tripName}
@@ -73,7 +139,7 @@ export function TripPage() {
               className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm"
             />
           </label>
-          <label className="text-xs text-muted">
+          <label className="text-sm text-muted">
             Home currency
             <input
               value={homeCurrency}
@@ -85,35 +151,34 @@ export function TripPage() {
 
         {stops.map((stop, i) => (
           <div key={i} className="grid gap-2 sm:grid-cols-[1fr_120px_auto]">
-            <select
+            <CitySelect
+              label={`Stop ${i + 1}`}
               value={stop.citySlug}
-              onChange={(e) => {
+              cities={cities}
+              disabled={catalogLoading}
+              onChange={(slug) => {
                 const next = [...stops]
-                next[i] = { ...stop, citySlug: e.target.value }
+                next[i] = { ...stop, citySlug: slug }
                 setStops(next)
               }}
-              className="h-10 cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
-            >
-              {cities.map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.name}, {c.country}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min={1}
-              value={stop.days}
-              onChange={(e) => {
-                const next = [...stops]
-                next[i] = { ...stop, days: Number(e.target.value) || 1 }
-                setStops(next)
-              }}
-              className="h-10 rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
             />
+            <label className="text-sm text-muted">
+              Days
+              <input
+                type="number"
+                min={1}
+                value={stop.days}
+                onChange={(e) => {
+                  const next = [...stops]
+                  next[i] = { ...stop, days: Number(e.target.value) || 1 }
+                  setStops(next)
+                }}
+                className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
+              />
+            </label>
             <button
               type="button"
-              className="h-10 cursor-pointer rounded-md border border-white/10 px-3 text-xs text-muted hover:text-coral"
+              className="h-10 self-end cursor-pointer rounded-md border border-white/10 px-3 text-sm text-muted hover:text-coral"
               onClick={() => setStops(stops.filter((_, j) => j !== i))}
             >
               Remove
@@ -125,18 +190,15 @@ export function TripPage() {
           <button
             type="button"
             className="cursor-pointer rounded-md border border-white/12 px-3 py-2 text-sm"
-            onClick={() => setStops([...stops, { citySlug: 'lisbon', days: 3 }])}
+            onClick={() =>
+              setStops([...stops, { citySlug: cities[0]?.slug || 'lisbon', days: 3 }])
+            }
           >
             Add stop
           </button>
-          <button
-            type="button"
-            onClick={() => void run()}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-emerald/30 bg-emerald/10 px-3 py-2 text-sm text-emerald"
-          >
-            {loading ? <LoadingSpinner size="sm" /> : null}
+          <PrimaryButton loading={loading} onClick={() => void run()}>
             Recalculate
-          </button>
+          </PrimaryButton>
           <button
             type="button"
             onClick={saveTrip}
@@ -145,7 +207,6 @@ export function TripPage() {
             Save trip locally
           </button>
         </div>
-        {error && <p className="text-sm text-coral">{error}</p>}
       </section>
 
       {result && (

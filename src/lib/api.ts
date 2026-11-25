@@ -12,10 +12,19 @@ import { buildClientCities, buildClientPulse } from './clientPulse'
 
 export class ApiError extends Error {
   status: number
-  constructor(message: string, status: number) {
+  code: string
+  constructor(message: string, status: number, code?: string) {
     super(message)
     this.status = status
+    this.code = code ?? (status === 404 ? 'not_found' : status === 429 ? 'rate_limited' : 'error')
   }
+}
+
+export type CityCatalogItem = {
+  slug: string
+  name: string
+  country: string
+  currencyCode: string
 }
 
 const CITIES_TTL_MS = 5 * 60 * 1000
@@ -23,9 +32,29 @@ let citiesCache: { data: CitiesListResponse; at: number } | null = null
 
 async function readJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    throw new ApiError(`Request failed (${res.status})`, res.status)
+    let message = `Request failed (${res.status})`
+    let code: string | undefined
+    try {
+      const body = (await res.json()) as { error?: string; code?: string }
+      if (body.error) message = body.error
+      if (body.code) code = body.code
+    } catch {
+      // ignore
+    }
+    if (res.status === 429) message = message || 'Too many requests — try again shortly'
+    if (res.status === 404) message = message || 'Not found'
+    throw new ApiError(message, res.status, code)
   }
   return (await res.json()) as T
+}
+
+export async function fetchCitiesCatalog(signal?: AbortSignal) {
+  const res = await fetch('/api/cities/catalog', { signal })
+  return readJson<{
+    cities: CityCatalogItem[]
+    byCountry: Record<string, Array<{ slug: string; name: string }>>
+    stats: { cityCount: number; countryCount: number; matchedCount: number }
+  }>(res)
 }
 
 export async function fetchCities(signal?: AbortSignal): Promise<CitiesListResponse> {

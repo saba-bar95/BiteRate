@@ -1,20 +1,28 @@
-import { useMemo, useState } from 'react'
-import { listCities } from '@shared/cities'
+import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { WageEquivalentResult } from '@shared/features'
-import { LoadingSpinner } from '../components/LoadingSpinner'
+import { CitySelect } from '../components/CitySelect'
+import { ErrorBanner } from '../components/ErrorBanner'
+import { PageHeader } from '../components/PageHeader'
+import { PrimaryButton } from '../components/PrimaryButton'
+import { useCitiesCatalog } from '../hooks/useCitiesCatalog'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { fetchEquivalent } from '../lib/api'
 import { formatMoney, formatNumber } from '../lib/format'
 
 export function EquivalentPage() {
-  const cities = useMemo(() => listCities(), [])
-  const [fromSlug, setFrom] = useState('tbilisi')
-  const [toSlug, setTo] = useState('berlin')
-  const [wage, setWage] = useState('1800')
+  usePageTitle('Wage PPP')
+  const { cities, loading: catalogLoading, error: catalogError, reload } =
+    useCitiesCatalog()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [fromSlug, setFrom] = useState(searchParams.get('from') || 'tbilisi')
+  const [toSlug, setTo] = useState(searchParams.get('to') || 'berlin')
+  const [wage, setWage] = useState(searchParams.get('wage') || '1800')
   const [result, setResult] = useState<WageEquivalentResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const run = async () => {
+  const run = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -25,53 +33,57 @@ export function EquivalentPage() {
           monthlyNetWage: Number(wage) || 0,
         }),
       )
+      const params = new URLSearchParams({
+        from: fromSlug,
+        to: toSlug,
+        wage,
+      })
+      setSearchParams(params, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed')
     } finally {
       setLoading(false)
     }
-  }
+  }, [fromSlug, setSearchParams, toSlug, wage])
+
+  useEffect(() => {
+    if (searchParams.get('from') || searchParams.get('to') || searchParams.get('wage')) {
+      void run()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <main className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
-      <div>
-        <p className="eyebrow">Wage → lifestyle</p>
-        <h1 className="display mt-1 text-3xl">Purchasing-power equivalent</h1>
-        <p className="mt-2 text-sm text-muted">
-          What monthly net wage matches your lifestyle when you move cities?
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Wage → lifestyle"
+        title="Purchasing-power equivalent"
+        description="What monthly net wage matches your lifestyle when you move cities?"
+      />
+
+      {(error || catalogError) && (
+        <ErrorBanner
+          message={error || catalogError || ''}
+          onRetry={() => (catalogError ? reload() : void run())}
+        />
+      )}
 
       <section className="bento grid gap-3 p-5 sm:grid-cols-4">
-        <label className="text-xs text-muted sm:col-span-1">
-          From
-          <select
-            value={fromSlug}
-            onChange={(e) => setFrom(e.target.value)}
-            className="mt-1 h-10 w-full cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
-          >
-            {cities.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-xs text-muted sm:col-span-1">
-          To
-          <select
-            value={toSlug}
-            onChange={(e) => setTo(e.target.value)}
-            className="mt-1 h-10 w-full cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
-          >
-            {cities.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-xs text-muted sm:col-span-1">
+        <CitySelect
+          label="From"
+          value={fromSlug}
+          cities={cities}
+          disabled={catalogLoading}
+          onChange={setFrom}
+        />
+        <CitySelect
+          label="To"
+          value={toSlug}
+          cities={cities}
+          disabled={catalogLoading}
+          onChange={setTo}
+        />
+        <label className="text-sm text-muted">
           Monthly net wage
           <input
             value={wage}
@@ -80,18 +92,11 @@ export function EquivalentPage() {
           />
         </label>
         <div className="flex items-end">
-          <button
-            type="button"
-            onClick={() => void run()}
-            className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-emerald/30 bg-emerald/10 text-sm text-emerald"
-          >
-            {loading ? <LoadingSpinner size="sm" /> : null}
+          <PrimaryButton className="w-full" loading={loading} onClick={() => void run()}>
             Calculate
-          </button>
+          </PrimaryButton>
         </div>
       </section>
-
-      {error && <p className="text-sm text-coral">{error}</p>}
 
       {result && (
         <section className="bento space-y-3 p-5">
