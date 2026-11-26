@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n api,web -c emerald,cyan \"tsx watch server/index.ts\" \"vite --port 3847 --host 127.0.0.1\"",
+    "dev": "concurrently -k -n api,web -c emerald,cyan \"npm run dev:api\" \"npm run dev:web\"",
     "dev:web": "vite --port 3847 --host 127.0.0.1",
-    "dev:api": "tsx watch server/index.ts",
+    "dev:api": "tsx watch server/index.ts server/app.ts server/lib server/services shared",
     "build": "tsx scripts/generate-sitemap.ts && node scripts/build-api.mjs && tsc -b && vite build",
     "build:api": "node scripts/build-api.mjs",
     "start": "tsx server/index.ts",
