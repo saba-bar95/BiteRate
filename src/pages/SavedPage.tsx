@@ -15,21 +15,32 @@ import { TRIP_RESTORE_KEY } from "../lib/tripRestore";
 export function SavedPage() {
   useSeo(
     "Saved",
-    "Your saved BiteRate comparisons and trips, with optional cloud sync.",
+    "Your saved BiteRate comparisons and trips. Local by default; cloud sync only when signed in.",
+    { noIndex: true },
   );
   const [data, setData] = useState<UserSyncPayload>(() => loadLocalSync());
   const [me, setMe] = useState<string | null>(null);
+  const [cloudReady, setCloudReady] = useState(false);
+  const [meChecked, setMeChecked] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    void fetchMe().then((m) => {
-      if (m.signedIn) setMe(m.name || m.email || "Signed in");
-    });
+    void fetchMe()
+      .then((m) => {
+        setCloudReady(Boolean(m.signedIn));
+        if (m.signedIn) setMe(m.name || m.email || "Signed in");
+      })
+      .catch(() => setCloudReady(false))
+      .finally(() => setMeChecked(true));
   }, []);
 
   const refresh = () => setData(loadLocalSync());
 
   const syncUp = async () => {
+    if (!cloudReady) {
+      setStatus("Cloud sync unavailable — saves stay in this browser only.");
+      return;
+    }
     try {
       const local = loadLocalSync();
       await pushSync(local);
@@ -41,6 +52,10 @@ export function SavedPage() {
   };
 
   const syncDown = async () => {
+    if (!cloudReady) {
+      setStatus("Not signed in — showing local saves only.");
+      return;
+    }
     try {
       const remote = await pullSync();
       if (remote.signedIn) {
@@ -65,28 +80,45 @@ export function SavedPage() {
   };
 
   return (
-    <main className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
+    <main className="page-shell mx-auto max-w-4xl space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <PageHeader
           eyebrow="Saved"
           title="Comparisons, trips & sync"
-          description={`Stored in this browser${me ? ` · ${me}` : ""}. Optional cloud sync uses Cursor identity.`}
+          description="Always stored in this browser. Cloud sync is optional and only works with a signed-in Cursor session."
         />
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void syncDown()}
-            className="cursor-pointer rounded-md border border-white/12 px-3 py-2 text-sm"
+        <div className="flex flex-col items-end gap-2">
+          <span
+            className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+              cloudReady
+                ? "border-emerald/30 bg-emerald/10 text-emerald"
+                : "border-white/10 bg-white/5 text-muted"
+            }`}
           >
-            Pull sync
-          </button>
-          <button
-            type="button"
-            onClick={() => void syncUp()}
-            className="cursor-pointer rounded-md border border-emerald/30 bg-emerald/10 px-3 py-2 text-sm text-emerald"
-          >
-            Push sync
-          </button>
+            {!meChecked
+              ? "Checking sync…"
+              : cloudReady
+                ? `Cloud ready · ${me}`
+                : "Local only"}
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void syncDown()}
+              disabled={!cloudReady}
+              className="cursor-pointer rounded-md border border-white/12 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              Pull sync
+            </button>
+            <button
+              type="button"
+              onClick={() => void syncUp()}
+              disabled={!cloudReady}
+              className="cursor-pointer rounded-md border border-emerald/30 bg-emerald/10 px-3 py-2 text-sm text-emerald disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              Push sync
+            </button>
+          </div>
         </div>
       </div>
       {status && (
@@ -96,7 +128,7 @@ export function SavedPage() {
       )}
 
       <section className="bento space-y-2 p-5">
-        <h2 className="display text-xl">Saved comparisons</h2>
+        <h2 className="display display-sm">Saved comparisons</h2>
         {data.saved.length === 0 && (
           <p className="text-sm text-muted">
             None yet — save from the Compare page.
@@ -136,7 +168,7 @@ export function SavedPage() {
       </section>
 
       <section className="bento space-y-2 p-5">
-        <h2 className="display text-xl">Saved trips</h2>
+        <h2 className="display display-sm">Saved trips</h2>
         {data.trips.length === 0 && (
           <p className="text-sm text-muted">
             Save a trip from the Trip planner.

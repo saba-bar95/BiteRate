@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="BiteRate">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0c0c0b"/>
+      <stop offset="100%" stop-color="#151513"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="980" cy="80" r="220" fill="#3d9b78" fill-opacity="0.12"/>
+  <circle cx="160" cy="560" r="180" fill="#c9923a" fill-opacity="0.08"/>
+  <text x="80" y="250" fill="#3d9b78" font-family="Georgia, serif" font-size="42" font-weight="700">BiteRate</text>
+  <text x="80" y="340" fill="#efece4" font-family="Arial, sans-serif" font-size="64" font-weight="700">How far does your money go?</text>
+  <text x="80" y="410" fill="#9a968c" font-family="Arial, sans-serif" font-size="32">Compare cities by FX, wages, weather &amp; local dishes</text>
+</svg>

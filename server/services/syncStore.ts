@@ -1,5 +1,9 @@
 import type { UserSyncPayload } from "../../shared/features.ts";
 
+/**
+ * In-process sync only. On Vercel serverless this is ephemeral (lost on cold
+ * start / instance hop). UI treats unsigned sessions as local-only.
+ */
 const store = new Map<string, UserSyncPayload>();
 const MAX_USERS = 2_000;
 

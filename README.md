@@ -6,26 +6,31 @@
 
 BiteRate answers “how far does my money go?” when you travel or relocate:
 
-- **Compare** two cities with a flat budget or hourly wage, live FX, a standardized cost basket, and a signature-dish purchasing-power card
-- **Explore** a 100+ city leaderboard and world map of purchasing-power scores
-- **Plan** multi-city trip spend, wage PPP equivalents, FX/dish stories over time, and FX fee scenarios
-- **Save** comparisons and trips locally, with optional Cursor-identity cloud sync and FX threshold alerts
+- **Compare** two cities with a flat budget or hourly wage, live FX, a cost basket, signature-dish PP, discovery presets, freshness badges, and “how we got this number” explainers
+- **Decide** whether to go now (score from PP / FX / weather / trip cost) or **relocate vs visit** break-even
+- **Explore** a **200+ city** catalog (100+ countries), map, leaderboard, shortlist ranking, and city pages with similar cities, seasonality, neighborhood tiers, and local price overrides
+- **Plan** multi-city trips with booking handoffs (flights/stays) and print/PDF trip sheets; wage PPP, FX/dish stories, and FX fee scenarios
+- **Save** comparisons and trips locally (browser); optional Cursor-identity cloud sync when signed in; FX alerts with **browser notifications**
+- **Trust** — `/data` explains curated baselines vs live enrichment; booking/fee links are labeled as search handoffs / illustrative math, not partnerships
 
-Baselines (dish prices, burgers, rent, wages) are **curated seed data**. Live APIs enrich FX, weather, Wikipedia dish blurbs, country metadata, and GDP. There is no free keyless global cost-of-living API for every dish, so seed prices remain the source of truth unless you set `NUMBEO_API_KEY`.
+Baselines (dish prices, burgers, rent, wages) are **curated seed data** (`shared/cities.ts` + `shared/citiesExtra.ts`). Live APIs enrich FX, weather, Wikipedia dish blurbs, country metadata, and GDP. There is no free keyless global cost-of-living API for every dish, so seed prices remain the source of truth unless you set `NUMBEO_API_KEY`.
 
 ## Routes
 
 | Path | Purpose | Shareable query / params |
 |------|---------|--------------------------|
 | `/compare/:from-vs-:to` | Main pulse comparison | `?budget=100&mode=flat\|hourly` |
-| `/city/:slug` | City baselines + CoL note | Links into compare / FX story |
-| `/trip` | Multi-stop trip budget | `?currency=&name=&s0=&d0=&…` / `?trip=` restore |
+| `/decide` | Should I go? + relocate vs visit | `?from=&to=&mode=go\|relocate&budget=&days=&months=` |
+| `/city/:slug` | Baselines, overrides, tiers, seasonality, similar | Links into compare / decide / FX story |
+| `/shortlist` | Rank cities by PP / wage / dish | `?cities=slug,slug,…` |
+| `/trip` | Multi-stop trip budget + print sheet | `?currency=&name=&s0=&d0=&…` / `?trip=` restore |
 | `/equivalent` | Wage → lifestyle PPP | `?from=&to=&wage=` |
 | `/story` | FX / dish portions over time | `?from=&to=&budget=` |
 | `/map` | PP map + searchable city list | — |
 | `/spend` | FX fee scenarios | `?amount=&currency=` |
-| `/saved` | Local saves + pull/push sync | — |
-| `/alerts` | Local FX threshold alerts | `?from=&to=&threshold=&label=` |
+| `/saved` | Local saves + optional sync (`noindex`) | — |
+| `/alerts` | FX threshold alerts (`noindex`) | `?from=&to=&threshold=&label=` |
+| `/data` | Methodology, seed vs live, privacy | — |
 
 Default landing redirects to `/compare/new-york-vs-tbilisi?budget=100`. The nav remembers your last compare pair.
 
@@ -35,18 +40,21 @@ Default landing redirects to `/compare/new-york-vs-tbilisi?budget=100`. The nav 
 |-------|---------|
 | Frontend | React 19 · TypeScript · Vite · React Router · Tailwind CSS v4 · Lucide · Recharts |
 | Backend | Hono on Node (`@hono/node-server`) · in-memory TTL cache + singleflight |
-| Shared | City seed + types + pure pulse math in `shared/` |
+| Shared | City seed, types, pulse math, decision math (`shared/`) |
+| Deploy | Vercel SPA + serverless `api/[[...route]].ts` (Hono) · CSP / security headers in `vercel.json` |
 | Auth (optional) | Cursor app identity for `/api/me` and `/api/sync` |
-| Tests | Vitest (`npm test`) |
+| Tests | Vitest (`npm test`) — pulse math, decision math, cities, errors, storage |
 
 ## Project layout
 
 ```
-shared/          City seed, types, pulse math (server + client fallback)
-server/          Hono API, security, FX/weather/wiki/COL services
-src/             React app (pages, components, hooks, client API)
+shared/          City seed (+ citiesExtra), types, pulseMath, decisionMath
+server/          Hono API, security, FX/weather/wiki/COL/decision services
+api/             Vercel serverless entry wrapping the Hono app
+src/             React app (pages, components, hooks, client API + fallbacks)
+scripts/         Build helpers (sitemap generation)
 cursor/          Local identity helpers for Cursor-hosted runs
-public/          Favicon / icons
+public/          Favicon, OG image, sitemap, robots
 ```
 
 ## Quick start
@@ -59,16 +67,16 @@ npm run dev
 - Web UI: `http://127.0.0.1:3847` (Vite proxies `/api` → API)
 - API: `http://127.0.0.1:3848`
 
-Both processes must be running. If the API is down, the UI shows proxy/`ECONNREFUSED` errors for `/api/*`.
+`npm run dev` starts **API + Vite** together (`tsx watch` + Vite). Both must be listening; if the API is down, the proxy surfaces `ECONNREFUSED` and the UI shows a friendly network error banner (many tools also fall back to client-side math).
 
-### Vercel (frontend analytics & SPA hosting)
+### Vercel
 
-The UI includes **Vercel Web Analytics** and **Speed Insights** (`@vercel/analytics`, `@vercel/speed-insights`). They only send data in production on Vercel.
+The UI includes **Vercel Web Analytics** and **Speed Insights**. They only send data in production on Vercel.
 
-1. Deploy/import the repo on Vercel (Vite preset; `vercel.json` rewrites SPA routes to `index.html`).
-2. In the Vercel project: **Analytics → Enable**, and enable **Speed Insights** if prompted.
-3. Point your production API separately (or keep `npm start` on a Node host). Vite’s `/api` proxy is for local/dev; on Vercel the static UI needs a real API base URL if you host the API elsewhere.
-4. After deploy, replace the placeholder origin in [`public/sitemap.xml`](public/sitemap.xml) with your real domain (sitemaps require absolute URLs).
+1. Deploy/import the repo on Vercel (Vite preset).
+2. `vercel.json` keeps SPA rewrites off `/api/*` so serverless `api/[[...route]].ts` can serve the Hono API, and sets CSP / frame-deny / long-cache for `/assets/*`.
+3. Enable **Analytics** / **Speed Insights** in the project settings if prompted.
+4. Set `SITE_URL` (and optionally `ALLOWED_ORIGINS`) so sitemap/CORS match your domain. `npm run build` regenerates `public/sitemap.xml` + `robots.txt` (~200+ city + compare URLs).
 
 ### Scripts
 
@@ -77,8 +85,9 @@ The UI includes **Vercel Web Analytics** and **Speed Insights** (`@vercel/analyt
 | `npm run dev` | API + Vite concurrently |
 | `npm run dev:web` | Vite only (port 3847) |
 | `npm run dev:api` | API only (port 3848) |
-| `npm run build` | Typecheck + production frontend build |
-| `npm start` | Run API (serves `dist/` when built) |
+| `npm run sitemap` | Regenerate sitemap + robots from city catalog |
+| `npm run build` | Sitemap + typecheck + production frontend build |
+| `npm start` | Run API (serves `dist/` when built; skipped listen on `VERCEL`) |
 | `npm run preview` | Vite preview of the built UI |
 | `npm test` | Vitest unit tests |
 | `npm run lint` | Oxlint |
@@ -89,9 +98,13 @@ The UI includes **Vercel Web Analytics** and **Speed Insights** (`@vercel/analyt
 |----------|----------|-------------|
 | `PORT` | No | API port (default `3848`) |
 | `HOST` | No | API bind host (default `127.0.0.1`) |
-| `NODE_ENV` | No | `production` enables static `dist/` serving |
+| `NODE_ENV` | No | `production` enables static `dist/` serving (non-Vercel) |
+| `VERCEL` | Auto | Skips Node `serve()`; use serverless handler |
+| `SITE_URL` | No | Canonical origin for sitemap (default `https://biterate.vercel.app`) |
+| `ALLOWED_ORIGINS` | No | Extra CORS origins (comma-separated), e.g. custom domain |
 | `NUMBEO_API_KEY` | No | Live cost-of-living enrichment; falls back to seed |
 | `CURSOR_APP_ID` | No | Set on Cursor-hosted deploys for real identity |
+| `TRUST_PROXY` | No | Trust `X-Forwarded-For` for rate-limit IP outside `NODE_ENV=production` |
 
 ## API overview
 
@@ -99,8 +112,11 @@ The UI includes **Vercel Web Analytics** and **Speed Insights** (`@vercel/analyt
 |----------|-------------|
 | `GET /api/health` | Health check |
 | `GET /api/cities` | Cities + purchasing-power leaderboard (filter: `q`, `country`, `currency`, `iso2`) |
-| `GET /api/cities/catalog` | Slim catalog for selects + `byCountry` (cached ~60s) |
+| `GET /api/cities/catalog` | Slim catalog for selects + `byCountry` |
 | `GET /api/cities/:slug` | Full city + CoL snapshot |
+| `GET /api/cities/:slug/similar` | Similar destinations |
+| `GET /api/cities/:slug/seasonality` | Month comfort + FX-friendly windows |
+| `GET /api/decide` | Should-go score + relocate vs visit (`from`, `to`, `budget`, `mode`, `days`, `months`) |
 | `GET /api/pulse/:from/:to` | Full comparison pulse (`budget`, `mode`, optional `wage`) |
 | `POST /api/trip` | Multi-city trip plan |
 | `POST /api/equivalent` | Wage PPP equivalent |
@@ -111,7 +127,7 @@ The UI includes **Vercel Web Analytics** and **Speed Insights** (`@vercel/analyt
 | `GET /api/me` | Cursor identity (or local simulated viewer) |
 | `GET\|PUT /api/sync` | Pull/push saved comparisons, trips, alerts |
 
-Error JSON may include a `code` (e.g. `not_found`, `rate_limited`) alongside `error`.
+Error JSON may include a `code` (e.g. `not_found`, `rate_limited`) alongside `error`. The UI maps failures to friendly banners (network / not found / rate limit / server).
 
 ### Upstream data sources
 
@@ -126,31 +142,35 @@ Mostly keyless; fetched with caching / `Promise.all`:
 
 ### Cache TTLs (server)
 
-| Data | TTL |
-|------|-----|
-| FX | ~30 minutes |
+| Data | TTL / HTTP cache |
+|------|------------------|
+| FX | ~30 minutes (server); pulse/decide also send short `Cache-Control` + SWR |
 | Weather | ~15 minutes |
 | Country / Wikipedia / World Bank | ~24 hours |
-| Cities list / map | Short public `Cache-Control` on selected GETs |
+| Cities list / map / similar / seasonality / spend | Short public `Cache-Control` on selected GETs |
 
-Partial upstream failures do not crash the UI — pulse responses include `sourcesStatus` pills (ok / cached / degraded / unavailable).
+Partial upstream failures do not crash the UI — pulse responses include `sourcesStatus` (ok / cached / degraded / unavailable) for internals, and the Compare page surfaces **freshness badges** for users. Client fallbacks cover pulse, decide, similar, and seasonality when the API is unreachable (seed chunk loads only on fallback).
 
 ### Security & performance notes
 
-- CORS allowlist (parsed origins)
-- Security headers (CSP, frame deny, nosniff, COOP/CORP)
-- Input validation + body size caps on sync / trip / alerts
-- Tiered rate limits; cache singleflight for upstream calls
-- Route-level code splitting (Recharts mainly on FX Story)
-- Tool pages load a **slim city catalog** instead of shipping the full seed to the browser; offline pulse fallback can still lazy-load the seed
+- CORS allowlist (parsed origins; `*.vercel.app` + `ALLOWED_ORIGINS` / `SITE_URL`)
+- Security headers on API and static CDN (CSP, frame deny, nosniff, Permissions-Policy)
+- Input validation + hard JSON body byte cap (even without `Content-Length`)
+- Route-scoped rate limits (pulse / decide / alerts / heavy / write / health)
+- Cache singleflight for upstream calls
+- Lazy route chunks; Recharts mainly on FX Story; searchable custom selects
+- Fluid type/spacing; slim catalog for tool pages
 
 ## Product notes
 
 - **FX** = foreign exchange rate used for conversions between home and target currencies
-- Compare state lives in the URL so links are shareable
-- Saves/alerts/trips live in `localStorage`; cloud sync needs a signed-in Cursor app session
-- Affiliate / multi-currency card CTAs are illustrative placeholders, not partner integrations
-- Alerts evaluate when you open Alerts (or click Check now) — no email/push yet
+- Compare / decide / trip / tool state lives in the URL where possible so links are shareable
+- Saves / alerts / trips / shortlist / price overrides live in `localStorage` (overrides & shortlist are local-only; sync payload is saved/alerts/trips)
+- Cloud sync needs a signed-in Cursor session; Saved shows **Local only** vs **Cloud ready**. In-memory sync on Vercel is ephemeral — treat unsigned or Vercel-only deploys as browser-local
+- Alerts can fire **browser notifications** when permission is granted; they also evaluate on Alerts open and via a throttled shell check
+- Multi-currency / booking deep links are illustrative search handoffs, not partner integrations
+- Neighborhood tiers scale seed baselines (budget / mid / premium); user overrides win when set
+- SEO: build-time sitemap + robots; OG image at `/og.svg`; `/saved` and `/alerts` are `noindex`
 
 ## License
 

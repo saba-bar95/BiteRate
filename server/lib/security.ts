@@ -2,6 +2,14 @@ import type { Context, Next } from "hono";
 
 const ALLOWED_HOSTS = new Set(["127.0.0.1", "localhost"]);
 
+function envAllowedOrigins(): string[] {
+  const raw = process.env.ALLOWED_ORIGINS || process.env.SITE_URL || "";
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /** Strict origin allowlist — never substring-match untrusted Origin headers. */
 export function allowedCorsOrigin(origin: string | undefined): string | null {
   if (!origin) return null;
@@ -12,6 +20,14 @@ export function allowedCorsOrigin(origin: string | undefined): string | null {
     if (ALLOWED_HOSTS.has(host)) return origin;
     if (host.endsWith(".apps.grok.bot")) return origin;
     if (host === "cursor.com" || host.endsWith(".cursor.com")) return origin;
+    if (host.endsWith(".vercel.app")) return origin;
+    for (const allowed of envAllowedOrigins()) {
+      try {
+        if (new URL(allowed).origin === url.origin) return origin;
+      } catch {
+        // ignore malformed env entries
+      }
+    }
     return null;
   } catch {
     return null;
@@ -60,9 +76,36 @@ export function rateLimit(
 export const RATE = {
   default: 90,
   heavy: 30,
+  pulse: 24,
+  decide: 24,
+  alerts: 12,
   write: 20,
   health: 180,
 } as const;
+
+/** Route-scoped bucket so map + pulse don't share one heavy counter. */
+export function rateBucketForPath(path: string, method: string): {
+  bucket: string;
+  limit: number;
+} {
+  if (path === "/api/health") return { bucket: "health", limit: RATE.health };
+  if (path.startsWith("/api/pulse"))
+    return { bucket: "pulse", limit: RATE.pulse };
+  if (path.startsWith("/api/decide"))
+    return { bucket: "decide", limit: RATE.decide };
+  if (path.startsWith("/api/alerts"))
+    return { bucket: "alerts", limit: RATE.alerts };
+  if (
+    path.startsWith("/api/trip") ||
+    path.startsWith("/api/map") ||
+    path === "/api/cities"
+  ) {
+    return { bucket: "heavy", limit: RATE.heavy };
+  }
+  if (method === "PUT" || method === "POST")
+    return { bucket: "write", limit: RATE.write };
+  return { bucket: "std", limit: RATE.default };
+}
 
 export async function securityHeaders(c: Context, next: Next) {
   c.header("X-Content-Type-Options", "nosniff");
@@ -103,4 +146,28 @@ export function rejectOversizedBody(c: Context): Response | null {
     return c.json({ error: "Request body too large" }, 413);
   }
   return null;
+}
+
+/** Read + parse JSON with a hard byte cap (covers missing Content-Length). */
+export async function readJsonCapped(
+  c: Context,
+): Promise<{ ok: true; data: unknown } | { ok: false; response: Response }> {
+  const oversized = rejectOversizedBody(c);
+  if (oversized) return { ok: false, response: oversized };
+
+  const text = await c.req.text();
+  if (text.length > MAX_JSON_BYTES) {
+    return {
+      ok: false,
+      response: c.json({ error: "Request body too large" }, 413),
+    };
+  }
+  try {
+    return { ok: true, data: text ? JSON.parse(text) : null };
+  } catch {
+    return {
+      ok: false,
+      response: c.json({ error: "Invalid JSON" }, 400),
+    };
+  }
 }

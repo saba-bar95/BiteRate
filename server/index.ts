@@ -16,7 +16,10 @@ import { buildCitiesList, buildPulse } from "./services/aggregator.ts";
 import { cachedFetch, TTL } from "./services/cache.ts";
 import { getColSnapshot } from "./services/col.ts";
 import {
+  buildDecide,
   buildFxStory,
+  buildSeasonality,
+  buildSimilarCities,
   buildSpendCompare,
   buildTripPlan,
   buildWageEquivalent,
@@ -24,11 +27,11 @@ import {
 import { getFxQuote } from "./services/fx.ts";
 import { emptySync, getSync, putSync } from "./services/syncStore.ts";
 import {
-  RATE,
   allowedCorsOrigin,
   clientIp,
+  rateBucketForPath,
   rateLimit,
-  rejectOversizedBody,
+  readJsonCapped,
   securityHeaders,
 } from "./lib/security.ts";
 import {
@@ -68,24 +71,9 @@ app.use("/api/*", async (c, next) => {
   }
 
   const ip = clientIp(c);
-  const pathKey = c.req.path;
-  const heavy =
-    pathKey.startsWith("/api/pulse") ||
-    pathKey.startsWith("/api/trip") ||
-    pathKey.startsWith("/api/map") ||
-    pathKey.startsWith("/api/alerts") ||
-    pathKey === "/api/cities";
-  const write = c.req.method === "PUT" || c.req.method === "POST";
-  const limit =
-    pathKey === "/api/health"
-      ? RATE.health
-      : heavy
-        ? RATE.heavy
-        : write
-          ? RATE.write
-          : RATE.default;
+  const { bucket, limit } = rateBucketForPath(c.req.path, c.req.method);
 
-  if (!rateLimit(`${ip}:${heavy ? "heavy" : write ? "write" : "std"}`, limit)) {
+  if (!rateLimit(`${ip}:${bucket}`, limit)) {
     return c.json(
       {
         error: "Rate limit exceeded. Try again shortly.",
@@ -93,11 +81,6 @@ app.use("/api/*", async (c, next) => {
       },
       429,
     );
-  }
-
-  if (write) {
-    const oversized = rejectOversizedBody(c);
-    if (oversized) return oversized;
   }
 
   await next();
@@ -141,13 +124,9 @@ app.put("/api/sync", async (c) => {
   if (!identity.verified) {
     return c.json({ error: "Sign in required to sync" }, 401);
   }
-  let raw: unknown;
-  try {
-    raw = await c.req.json();
-  } catch {
-    return c.json({ error: "Invalid JSON" }, 400);
-  }
-  const payload = sanitizeSyncPayload(raw);
+  const parsed = await readJsonCapped(c);
+  if (!parsed.ok) return parsed.response;
+  const payload = sanitizeSyncPayload(parsed.data);
   if (!payload) return c.json({ error: "Invalid sync payload" }, 400);
   const key = `${identity.stage}:${identity.sub}`;
   try {
@@ -230,6 +209,67 @@ app.get("/api/cities/:slug", async (c) => {
   return c.json({ city, col });
 });
 
+app.get("/api/cities/:slug/similar", (c) => {
+  const slug = requireCitySlug(c.req.param("slug"));
+  if (!slug) return c.json({ error: "City not found", code: "not_found" }, 404);
+  const limit = parsePositiveNumber(c.req.query("limit") ?? 6, {
+    min: 1,
+    max: 20,
+    fallback: 6,
+  });
+  const data = buildSimilarCities(slug, limit ?? 6);
+  if (!data) return c.json({ error: "City not found", code: "not_found" }, 404);
+  c.header("Cache-Control", "public, max-age=120");
+  return c.json(data);
+});
+
+app.get("/api/cities/:slug/seasonality", async (c) => {
+  const slug = requireCitySlug(c.req.param("slug"));
+  if (!slug) return c.json({ error: "City not found", code: "not_found" }, 404);
+  const data = await buildSeasonality(slug);
+  if (!data) return c.json({ error: "City not found", code: "not_found" }, 404);
+  c.header("Cache-Control", "public, max-age=300");
+  return c.json(data);
+});
+
+app.get("/api/decide", async (c) => {
+  const fromSlug = requireCitySlug(c.req.query("from"));
+  const toSlug = requireCitySlug(c.req.query("to"));
+  if (!fromSlug || !toSlug) {
+    return c.json({ error: "Unknown city slug", code: "not_found" }, 404);
+  }
+  const budget = parsePositiveNumber(c.req.query("budget") ?? 100, {
+    min: 0.01,
+    max: 1_000_000_000,
+  });
+  if (budget == null) return c.json({ error: "Invalid budget" }, 400);
+  const mode = c.req.query("mode") === "relocate" ? "relocate" : "go";
+  const days = parsePositiveNumber(c.req.query("days") ?? 7, {
+    min: 1,
+    max: 365,
+    fallback: 7,
+  });
+  const months = parsePositiveNumber(c.req.query("months") ?? 1, {
+    min: 0.25,
+    max: 36,
+    fallback: 1,
+  });
+  const data = await buildDecide({
+    fromSlug,
+    toSlug,
+    budget,
+    mode,
+    days: days ?? 7,
+    months: months ?? 1,
+  });
+  if (!data) return c.json({ error: "Unable to build decision" }, 500);
+  c.header(
+    "Cache-Control",
+    "public, max-age=60, stale-while-revalidate=120",
+  );
+  return c.json(data);
+});
+
 app.get("/api/pulse/:fromSlug/:toSlug", async (c) => {
   const fromSlug = requireCitySlug(c.req.param("fromSlug"));
   const toSlug = requireCitySlug(c.req.param("toSlug"));
@@ -255,17 +295,17 @@ app.get("/api/pulse/:fromSlug/:toSlug", async (c) => {
 
   const pulse = await buildPulse(fromSlug, toSlug, budget, mode, hourlyWage);
   if (!pulse) return c.json({ error: "Unable to build pulse" }, 500);
+  c.header(
+    "Cache-Control",
+    "public, max-age=60, stale-while-revalidate=120",
+  );
   return c.json(pulse);
 });
 
 app.post("/api/trip", async (c) => {
-  let raw: unknown;
-  try {
-    raw = await c.req.json();
-  } catch {
-    return c.json({ error: "Invalid JSON" }, 400);
-  }
-  const input = parseTripBody(raw);
+  const parsed = await readJsonCapped(c);
+  if (!parsed.ok) return parsed.response;
+  const input = parseTripBody(parsed.data);
   if (!input) return c.json({ error: "Invalid trip plan" }, 400);
   const plan = await buildTripPlan(input);
   if (!plan) return c.json({ error: "Invalid trip plan" }, 400);
@@ -273,13 +313,9 @@ app.post("/api/trip", async (c) => {
 });
 
 app.post("/api/equivalent", async (c) => {
-  let raw: unknown;
-  try {
-    raw = await c.req.json();
-  } catch {
-    return c.json({ error: "Invalid JSON" }, 400);
-  }
-  const body = raw as Record<string, unknown>;
+  const parsed = await readJsonCapped(c);
+  if (!parsed.ok) return parsed.response;
+  const body = (parsed.data ?? {}) as Record<string, unknown>;
   const fromSlug = requireCitySlug(body.fromSlug);
   const toSlug = requireCitySlug(body.toSlug);
   const monthlyNetWage = parsePositiveNumber(body.monthlyNetWage, {
@@ -310,6 +346,10 @@ app.get("/api/story/:fromSlug/:toSlug", async (c) => {
   }
   const story = await buildFxStory({ fromSlug, toSlug, budget });
   if (!story) return c.json({ error: "Unable to build FX story" }, 400);
+  c.header(
+    "Cache-Control",
+    "public, max-age=120, stale-while-revalidate=300",
+  );
   return c.json(story);
 });
 
@@ -322,17 +362,14 @@ app.get("/api/spend", (c) => {
   if (amount == null || !currency) {
     return c.json({ error: "Invalid amount or currency" }, 400);
   }
+  c.header("Cache-Control", "public, max-age=300");
   return c.json(buildSpendCompare(amount, currency));
 });
 
 app.post("/api/alerts/check", async (c) => {
-  let raw: unknown;
-  try {
-    raw = await c.req.json();
-  } catch {
-    return c.json({ error: "Invalid JSON" }, 400);
-  }
-  const alerts = sanitizeAlertsInput(raw);
+  const parsed = await readJsonCapped(c);
+  if (!parsed.ok) return parsed.response;
+  const alerts = sanitizeAlertsInput(parsed.data);
   if (!alerts) return c.json({ error: "Invalid alerts payload" }, 400);
 
   const checked = await Promise.all(
@@ -378,7 +415,7 @@ const isProd = process.env.NODE_ENV === "production";
 const port = Number(process.env.PORT ?? 3848);
 const host = process.env.HOST ?? "127.0.0.1";
 
-if (isProd && existsSync(distDir)) {
+if (isProd && !process.env.VERCEL && existsSync(distDir)) {
   app.use("/assets/*", serveStatic({ root: "./dist" }));
   app.use("/favicon.svg", serveStatic({ root: "./dist" }));
   app.use("/favicon.ico", serveStatic({ root: "./dist" }));
@@ -392,7 +429,18 @@ if (isProd && existsSync(distDir)) {
   });
 }
 
-console.log(`BiteRate API listening on http://${host}:${port}`);
-serve({ fetch: app.fetch, port, hostname: host });
+const skipListen =
+  Boolean(process.env.VERCEL) || process.env.BITE_SKIP_LISTEN === "1";
+
+if (!skipListen) {
+  try {
+    serve({ fetch: app.fetch, port, hostname: host }, (info) => {
+      console.log(`BiteRate API listening on http://${host}:${info.port}`);
+    });
+  } catch (err) {
+    console.error("BiteRate API failed to start:", err);
+    process.exit(1);
+  }
+}
 
 export default app;

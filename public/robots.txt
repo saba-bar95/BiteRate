@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /saved
+Disallow: /alerts
 
-Sitemap: /sitemap.xml
+Sitemap: https://biterate.vercel.app/sitemap.xml
