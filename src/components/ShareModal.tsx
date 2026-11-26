@@ -118,7 +118,7 @@ export function ShareModal({
         <div className="space-y-4 p-4">
           <div className="rounded-md border border-white/10 bg-obsidian/60 p-5">
             <div className="brand-mark text-xl text-emerald">BiteRate</div>
-            <div className="display mt-2 text-2xl">
+            <div className="display mt-2">
               {fromName} → {toName}
             </div>
             <p className="mt-2 text-sm text-muted">

@@ -7,18 +7,21 @@ function PulseTile({ pulse, label }: { pulse: CityPulse; label: string }) {
   const { city, weather, country, macro, localTime } = pulse;
   const WeatherIcon = weather ? weatherIcon(weather.weatherCode) : null;
 
+  const capital =
+    country?.capital &&
+    country.capital.toLowerCase() !== city.name.toLowerCase()
+      ? country.capital
+      : null;
+
   return (
     <div className="surface p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="eyebrow">{label}</p>
-          <h3 className="display mt-1 text-xl">
-            {country?.flagEmoji ? `${country.flagEmoji} ` : ""}
-            {city.name}
-          </h3>
+          <h3 className="display mt-1 text-xl">{city.name}</h3>
           <p className="text-sm text-muted">
             {city.country}
-            {country?.capital ? ` · ${country.capital}` : ""}
+            {capital ? ` · capital ${capital}` : ""}
           </p>
         </div>
         {country?.flagPng && (
@@ -96,7 +99,7 @@ export function CityPulseStrip({
     <section className="bento fade-in-delay-2 p-5 sm:p-6">
       <div className="mb-4">
         <p className="eyebrow">Live city pulse</p>
-        <h2 className="display mt-1 text-2xl">Time, weather & macro context</h2>
+        <h2 className="display mt-1">Time, weather & macro context</h2>
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
         <PulseTile pulse={from} label="Home" />

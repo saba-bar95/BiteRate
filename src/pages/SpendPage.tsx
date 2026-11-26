@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { SpendCompareResult } from "@shared/features";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PageHeader } from "../components/PageHeader";
 import { PrimaryButton } from "../components/PrimaryButton";
+import { useAsyncAction } from "../hooks/useAsyncAction";
 import { useSeo } from "../hooks/useSeo";
 import { fetchSpend } from "../lib/api";
 import { formatMoney, formatNumber } from "../lib/format";
@@ -19,24 +20,18 @@ export function SpendPage() {
     (searchParams.get("currency") || "USD").toUpperCase(),
   );
   const [result, setResult] = useState<SpendCompareResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const run = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const { loading, error, run } = useAsyncAction(
+    async () => {
       setResult(await fetchSpend(Number(amount) || 0, currency));
       const params = new URLSearchParams();
       params.set("amount", amount);
       params.set("currency", currency);
       setSearchParams(params, { replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to compare fees");
-    } finally {
-      setLoading(false);
-    }
-  }, [amount, currency, setSearchParams]);
+    },
+    "Failed to compare fees",
+    [amount, currency, setSearchParams],
+  );
 
   useEffect(() => {
     if (searchParams.get("amount") || searchParams.get("currency")) {
@@ -47,7 +42,7 @@ export function SpendPage() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
+    <main className="page-shell mx-auto max-w-4xl space-y-4">
       <PageHeader
         eyebrow="Smart spend"
         title="FX fee deep-dive"
@@ -57,20 +52,20 @@ export function SpendPage() {
       {error && <ErrorBanner message={error} onRetry={() => void run()} />}
 
       <section className="bento grid gap-3 p-5 sm:grid-cols-3">
-        <label className="text-sm text-muted">
+        <label className="field">
           Amount
           <input
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
+            className="field-control tabular"
           />
         </label>
-        <label className="text-sm text-muted">
+        <label className="field">
           Currency
           <input
             value={currency}
             onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-            className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm"
+            className="field-control"
           />
         </label>
         <div className="flex items-end">

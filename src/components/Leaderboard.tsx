@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import type { PurchasingPowerScore } from "@shared/types";
 import { formatMoney, formatNumber, formatPct } from "../lib/format";
+import { Select } from "./Select";
 
 type SortKey = "score" | "fxGain30d" | "dishValueUsd";
 
@@ -28,6 +29,14 @@ export function Leaderboard({
   const countries = useMemo(
     () => [...new Set(rows.map((r) => r.country))].sort(),
     [rows],
+  );
+
+  const countryOptions = useMemo(
+    () => [
+      { value: "all", label: "All countries" },
+      ...countries.map((name) => ({ value: name, label: name })),
+    ],
+    [countries],
   );
 
   const globalRank = useMemo(() => {
@@ -68,11 +77,11 @@ export function Leaderboard({
   const nextBatch = Math.min(PAGE_SIZE, remaining);
 
   return (
-    <section className="bento fade-in p-5 sm:p-6">
+    <section className="bento fade-in p-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="eyebrow">Global explorer</p>
-          <h2 className="display mt-1 text-2xl">
+          <h2 className="display mt-1">
             Purchasing power leaderboard
           </h2>
           <p className="mt-1 text-sm text-muted">
@@ -115,21 +124,17 @@ export function Leaderboard({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Filter cities, countries, currencies…"
-            className="h-10 w-full rounded-md border border-white/10 bg-obsidian/50 pr-3 pl-10 text-sm outline-none transition focus:border-emerald/50"
+            className="field-control field-with-icon"
           />
         </div>
-        <select
+        <Select
           value={country}
-          onChange={(e) => setCountry(e.target.value)}
-          className="h-10 cursor-pointer rounded-md border border-white/10 bg-obsidian/50 px-3 text-sm outline-none transition focus:border-emerald/50 sm:w-56"
-        >
-          <option value="all">All countries</option>
-          {countries.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+          onChange={setCountry}
+          options={countryOptions}
+          className="sm:w-56"
+          aria-label="Filter by country"
+          searchable
+        />
       </div>
 
       <div className="mt-5 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">

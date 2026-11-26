@@ -27,12 +27,12 @@ export function AffiliateStrip({
         </div>
         <div>
           <p className="eyebrow">Smart spend</p>
-          <h2 className="display mt-1 text-xl">
+          <h2 className="display display-sm mt-1">
             Keep more of your {formatMoney(budget, currency)} abroad
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Banks often take ~3% on FX. A multi-currency card at ~0.5% could
-            save about{" "}
+            Illustrative fee math only — not a product pitch. Banks often take
+            ~3% on FX; a multi-currency card at ~0.5% could save about{" "}
             <span className="tabular text-emerald">
               {formatMoney(savings, currency)}
             </span>{" "}

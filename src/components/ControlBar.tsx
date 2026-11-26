@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeftRight, Copy, Wallet } from "lucide-react";
 import type { City } from "@shared/types";
+import { FieldSelect } from "./Select";
 import { LoadingSpinner } from "./LoadingSpinner";
 
 const BUDGET_DEBOUNCE_MS = 800;
@@ -77,25 +78,29 @@ export function ControlBar({
     }, BUDGET_DEBOUNCE_MS);
   };
 
+  const cityOptions = useMemo(
+    () =>
+      cities.map((city) => ({
+        value: city.slug,
+        label: `${city.name} · ${city.currencyCode}`,
+      })),
+    [cities],
+  );
+
   return (
     <header className="sticky top-0 z-40 border-b border-white/8 bg-obsidian/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 py-3 sm:px-6">
+      <div className="page-shell mx-auto flex max-w-7xl flex-col items-center gap-3 !py-3">
         <div className="flex w-full max-w-5xl flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-end">
-          <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm text-muted">
-            Home city
-            <select
-              disabled={loading || cities.length === 0}
-              className="h-11 cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-base text-ink outline-none transition focus:border-emerald/50 disabled:cursor-wait disabled:opacity-60"
-              value={fromSlug}
-              onChange={(e) => onFromChange(e.target.value)}
-            >
-              {cities.map((city) => (
-                <option key={city.slug} value={city.slug}>
-                  {city.name} · {city.currencyCode}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FieldSelect
+            className="flex-1"
+            label="Home city"
+            controlSize="lg"
+            value={fromSlug}
+            options={cityOptions}
+            disabled={loading || cities.length === 0}
+            onChange={onFromChange}
+            searchable
+          />
 
           <button
             type="button"
@@ -111,23 +116,18 @@ export function ControlBar({
             )}
           </button>
 
-          <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm text-muted">
-            Target city
-            <select
-              disabled={loading || cities.length === 0}
-              className="h-11 cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-base text-ink outline-none transition focus:border-emerald/50 disabled:cursor-wait disabled:opacity-60"
-              value={toSlug}
-              onChange={(e) => onToChange(e.target.value)}
-            >
-              {cities.map((city) => (
-                <option key={city.slug} value={city.slug}>
-                  {city.name} · {city.currencyCode}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FieldSelect
+            className="flex-1"
+            label="Target city"
+            controlSize="lg"
+            value={toSlug}
+            options={cityOptions}
+            disabled={loading || cities.length === 0}
+            onChange={onToChange}
+            searchable
+          />
 
-          <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm text-muted sm:max-w-[11rem]">
+          <label className="field flex-1 sm:max-w-[11rem]">
             {mode === "hourly" ? "Hourly wage" : "Budget"}
             <div className="relative">
               <Wallet className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" />
@@ -156,7 +156,7 @@ export function ControlBar({
                     e.currentTarget.blur();
                   }
                 }}
-                className="h-11 w-full rounded-md border border-white/10 bg-panel pr-3 pl-10 text-base tabular text-ink outline-none transition focus:border-emerald/50"
+                className="field-control field-lg field-with-icon tabular"
                 aria-label={mode === "hourly" ? "Hourly wage" : "Budget"}
               />
             </div>

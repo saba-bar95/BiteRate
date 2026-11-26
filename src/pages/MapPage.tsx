@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ErrorBanner } from "../components/ErrorBanner";
-import { LoadingSpinner } from "../components/LoadingSpinner";
+import { LoadingPane } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
+import { FieldSelect } from "../components/Select";
+import { useAbortableQuery } from "../hooks/useAbortableQuery";
 import { useCitiesCatalog } from "../hooks/useCitiesCatalog";
 import { useSeo } from "../hooks/useSeo";
 import { fetchMap } from "../lib/api";
@@ -31,28 +33,32 @@ export function MapPage() {
     "Explore purchasing power scores on a world map and browse cities by country.",
   );
   const { byCountry } = useCitiesCatalog();
-  const [points, setPoints] = useState<Point[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<Point | null>(null);
   const [query, setQuery] = useState("");
   const [countryFilter, setCountryFilter] = useState("all");
-  const [retryKey, setRetryKey] = useState(0);
   const w = 960;
   const h = 480;
   const fromSlug = getLastCompareFrom() || "new-york";
   const countries = useMemo(() => Object.keys(byCountry).sort(), [byCountry]);
+  const countryOptions = useMemo(
+    () => [
+      { value: "all", label: "All countries" },
+      ...countries.map((name) => ({ value: name, label: name })),
+    ],
+    [countries],
+  );
 
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    fetchMap()
-      .then((d) => setPoints(d.points))
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : "Failed to load map"),
-      )
-      .finally(() => setLoading(false));
-  }, [retryKey]);
+  const {
+    data: mapData,
+    loading,
+    error,
+    reload,
+  } = useAbortableQuery(
+    (signal) => fetchMap(signal),
+    [],
+    "Failed to load map",
+  );
+  const points = (mapData?.points ?? []) as Point[];
 
   const max = useMemo(
     () => Math.max(...points.map((p) => p.score), 1),
@@ -73,25 +79,21 @@ export function MapPage() {
   }, [points, query, countryFilter]);
 
   return (
-    <main className="mx-auto max-w-6xl space-y-4 px-4 py-6 sm:px-6">
+    <main className="page-shell mx-auto max-w-6xl space-y-4">
       <PageHeader
         eyebrow="Map explorer"
         title="Purchasing power around the world"
         description="Select a city from the map or the searchable list."
       />
 
-      {error && (
-        <ErrorBanner
-          message={error}
-          onRetry={() => setRetryKey((k) => k + 1)}
-        />
-      )}
+      {error && <ErrorBanner message={error} onRetry={reload} />}
 
       <section className="bento grid gap-4 overflow-hidden p-3 sm:p-5 lg:grid-cols-[1fr_280px]">
         {loading ? (
-          <div className="flex h-72 items-center justify-center gap-2 text-sm text-muted lg:col-span-2">
-            <LoadingSpinner /> Loading map…
-          </div>
+          <LoadingPane
+            label="Loading map…"
+            className="flex h-72 items-center justify-center text-sm text-muted lg:col-span-2"
+          />
         ) : (
           <>
             <div className="relative w-full overflow-x-auto">
@@ -156,30 +158,22 @@ export function MapPage() {
             </div>
 
             <div className="flex max-h-[28rem] flex-col gap-2">
-              <label className="text-sm text-muted">
+              <label className="field">
                 Find a city
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search…"
-                  className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm outline-none focus:border-emerald/50"
+                  className="field-control"
                 />
               </label>
-              <label className="text-sm text-muted">
-                Country
-                <select
-                  value={countryFilter}
-                  onChange={(e) => setCountryFilter(e.target.value)}
-                  className="mt-1 h-10 w-full cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
-                >
-                  <option value="all">All countries</option>
-                  {countries.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <FieldSelect
+                label="Country"
+                value={countryFilter}
+                options={countryOptions}
+                onChange={setCountryFilter}
+                searchable
+              />
               <ul className="flex-1 space-y-1 overflow-y-auto rounded-md border border-white/8 p-1">
                 {filtered.slice(0, 80).map((p) => (
                   <li key={p.slug}>

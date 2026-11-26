@@ -35,14 +35,12 @@ export function DishHeroCard({
   const meter = Math.min(100, Math.round((dish.visitorPortions / 40) * 100));
 
   return (
-    <section className="bento fade-in-delay p-5 sm:p-6">
+    <section className="bento fade-in-delay p-4 sm:p-6">
       <div className="flex flex-col gap-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="eyebrow">Signature local dish</p>
-            <h2 className="display mt-1 text-2xl sm:text-[1.75rem]">
-              {dish.dishName}
-            </h2>
+            <h2 className="display mt-1">{dish.dishName}</h2>
             <p className="mt-1 text-sm text-muted">
               {cityName} · {dish.unitLabel} ·{" "}
               <span className="tabular">
@@ -64,12 +62,12 @@ export function DishHeroCard({
             <img
               src={dish.wiki.thumbnailUrl}
               alt={dish.dishName}
-              className="h-36 w-36 shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-40 sm:w-40"
+              className="h-28 w-28 shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-40 sm:w-40"
               loading="lazy"
             />
           ) : (
-            <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-md border border-white/10 bg-obsidian/60 text-muted sm:h-40 sm:w-40">
-              <UtensilsCrossed className="h-9 w-9" />
+            <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-md border border-white/10 bg-obsidian/60 text-muted sm:h-40 sm:w-40">
+              <UtensilsCrossed className="h-8 w-8 sm:h-9 sm:w-9" />
             </div>
           )}
         </div>

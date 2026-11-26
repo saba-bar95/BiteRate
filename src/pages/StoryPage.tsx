@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { FxStoryResult } from "@shared/features";
 import {
@@ -9,26 +9,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CatalogErrorBanner } from "../components/CatalogErrorBanner";
 import { CitySelect } from "../components/CitySelect";
-import { ErrorBanner } from "../components/ErrorBanner";
 import { PageHeader } from "../components/PageHeader";
 import { PrimaryButton } from "../components/PrimaryButton";
+import { useAsyncAction } from "../hooks/useAsyncAction";
 import { useCitiesCatalog } from "../hooks/useCitiesCatalog";
+import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 import { useSeo } from "../hooks/useSeo";
 import { fetchStory } from "../lib/api";
 import { formatNumber } from "../lib/format";
-
-function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const onChange = () => setReduced(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-  return reduced;
-}
 
 export function StoryPage() {
   useSeo(
@@ -46,25 +36,19 @@ export function StoryPage() {
   const [toSlug, setTo] = useState(searchParams.get("to") || "tbilisi");
   const [budget, setBudget] = useState(searchParams.get("budget") || "100");
   const [story, setStory] = useState<FxStoryResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const reducedMotion = usePrefersReducedMotion();
 
-  const run = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const { loading, error, run } = useAsyncAction(
+    async () => {
       setStory(await fetchStory(fromSlug, toSlug, Number(budget) || 100));
       setSearchParams(
         { from: fromSlug, to: toSlug, budget },
         { replace: true },
       );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to build story");
-    } finally {
-      setLoading(false);
-    }
-  }, [budget, fromSlug, setSearchParams, toSlug]);
+    },
+    "Failed to build story",
+    [budget, fromSlug, setSearchParams, toSlug],
+  );
 
   useEffect(() => {
     if (
@@ -78,18 +62,18 @@ export function StoryPage() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
+    <main className="page-shell mx-auto max-w-5xl space-y-4">
       <PageHeader
         eyebrow="Inflation & FX story"
         title="What your money bought over time"
       />
 
-      {(error || catalogError) && (
-        <ErrorBanner
-          message={error || catalogError || ""}
-          onRetry={() => (catalogError ? reload() : void run())}
-        />
-      )}
+      <CatalogErrorBanner
+        pageError={error}
+        catalogError={catalogError}
+        onReloadCatalog={reload}
+        onRetryPage={() => void run()}
+      />
 
       <section className="bento grid gap-3 p-5 sm:grid-cols-4">
         <CitySelect
@@ -106,12 +90,12 @@ export function StoryPage() {
           disabled={catalogLoading}
           onChange={setTo}
         />
-        <label className="text-sm text-muted">
+        <label className="field">
           Budget
           <input
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
-            className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
+            className="field-control tabular"
           />
         </label>
         <div className="flex items-end">
@@ -127,7 +111,7 @@ export function StoryPage() {
 
       {story && (
         <section className="bento space-y-4 p-5">
-          <h2 className="display text-xl">
+          <h2 className="display display-sm">
             {story.budget} {story.fromCurrency} → {story.dishName} in{" "}
             {story.cityName}
           </h2>
