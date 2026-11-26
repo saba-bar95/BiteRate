@@ -74,9 +74,10 @@ npm run dev
 The UI includes **Vercel Web Analytics** and **Speed Insights**. They only send data in production on Vercel.
 
 1. Deploy/import the repo on Vercel (Vite preset).
-2. `vercel.json` keeps SPA rewrites off `/api/*` so serverless `api/[[...route]].ts` can serve the Hono API, and sets CSP / frame-deny / long-cache for `/assets/*`.
-3. Enable **Analytics** / **Speed Insights** in the project settings if prompted.
-4. Set `SITE_URL` (and optionally `ALLOWED_ORIGINS`) so sitemap/CORS match your domain. `npm run build` regenerates `public/sitemap.xml` + `robots.txt` (~200+ city + compare URLs).
+2. `vercel.json` keeps SPA rewrites off `/api/*` so serverless `api/[[...route]].js` can serve the Hono API, and sets CSP / frame-deny / long-cache for `/assets/*`.
+3. `npm run build` also bundles the API into `api/app.mjs` (required on Vercel — importing raw `server/*.ts` from the function fails at runtime).
+4. Enable **Analytics** / **Speed Insights** in the project settings if prompted.
+5. Set `SITE_URL` (and optionally `ALLOWED_ORIGINS`) so sitemap/CORS match your domain. Build also regenerates `public/sitemap.xml` + `robots.txt` (~200+ city + compare URLs).
 
 ### Scripts
 
@@ -86,7 +87,8 @@ The UI includes **Vercel Web Analytics** and **Speed Insights**. They only send 
 | `npm run dev:web` | Vite only (port 3847) |
 | `npm run dev:api` | API only (port 3848) |
 | `npm run sitemap` | Regenerate sitemap + robots from city catalog |
-| `npm run build` | Sitemap + typecheck + production frontend build |
+| `npm run build:api` | Bundle Hono API → `api/app.mjs` for Vercel |
+| `npm run build` | Sitemap + API bundle + typecheck + Vite build |
 | `npm start` | Run API (serves `dist/` when built; skipped listen on `VERCEL`) |
 | `npm run preview` | Vite preview of the built UI |
 | `npm test` | Vitest unit tests |
