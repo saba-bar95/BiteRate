@@ -5,5 +5,8 @@ export const config = {
   maxDuration: 30,
 };
 
-/** Classic Node (req, res) listener — reliable on Vercel Node serverless. */
+/**
+ * Single serverless entry for all /api/* traffic (rewritten in vercel.json).
+ * Nested catch-all files were 404ing multi-segment paths under the Vite preset.
+ */
 export default getRequestListener(app.fetch);
