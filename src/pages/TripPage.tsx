@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { TripPlanResult } from "@shared/features";
+import { BookingHandoff } from "../components/BookingHandoff";
+import { CatalogErrorBanner } from "../components/CatalogErrorBanner";
 import { CitySelect } from "../components/CitySelect";
-import { ErrorBanner } from "../components/ErrorBanner";
 import { PageHeader } from "../components/PageHeader";
 import { PrimaryButton } from "../components/PrimaryButton";
+import { TripPrintSheet } from "../components/TripPrintSheet";
+import { useAsyncAction } from "../hooks/useAsyncAction";
 import { useCitiesCatalog } from "../hooks/useCitiesCatalog";
 import { useSeo } from "../hooks/useSeo";
 import { fetchTrip } from "../lib/api";
@@ -42,8 +45,6 @@ export function TripPage() {
     },
   ]);
   const [result, setResult] = useState<TripPlanResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [tripName, setTripName] = useState(
     searchParams.get("name") || "Caucasus & Bosphorus",
   );
@@ -94,19 +95,14 @@ export function TripPage() {
     setSearchParams(params, { replace: true });
   }, [homeCurrency, searchParams, setSearchParams, stops, tripName]);
 
-  const run = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchTrip({ homeCurrency, stops });
-      setResult(data);
+  const { loading, error, run } = useAsyncAction(
+    async () => {
+      setResult(await fetchTrip({ homeCurrency, stops }));
       syncUrl();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
-    } finally {
-      setLoading(false);
-    }
-  }, [homeCurrency, stops, syncUrl]);
+    },
+    "Failed",
+    [homeCurrency, stops, syncUrl],
+  );
 
   useEffect(() => {
     void run();
@@ -132,22 +128,19 @@ export function TripPage() {
   };
 
   return (
-    <main className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
+    <main className="page-shell mx-auto max-w-5xl space-y-4">
       <PageHeader
         eyebrow="Trip budget planner"
         title="Multi-city itinerary cost"
         description="Estimate meals, transit, lodging, and signature-dish spend across stops."
       />
 
-      {(error || catalogError) && (
-        <ErrorBanner
-          message={error || catalogError || ""}
-          onRetry={() => {
-            if (catalogError) reload();
-            else void run();
-          }}
-        />
-      )}
+      <CatalogErrorBanner
+        pageError={error}
+        catalogError={catalogError}
+        onReloadCatalog={reload}
+        onRetryPage={() => void run()}
+      />
       {toast && (
         <p className="text-sm text-emerald" role="status">
           {toast}
@@ -156,20 +149,20 @@ export function TripPage() {
 
       <section className="bento space-y-3 p-5">
         <div className="grid gap-3 sm:grid-cols-3">
-          <label className="text-sm text-muted">
+          <label className="field">
             Trip name
             <input
               value={tripName}
               onChange={(e) => setTripName(e.target.value)}
-              className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm"
+              className="field-control"
             />
           </label>
-          <label className="text-sm text-muted">
+          <label className="field">
             Home currency
             <input
               value={homeCurrency}
               onChange={(e) => setHomeCurrency(e.target.value.toUpperCase())}
-              className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
+              className="field-control tabular"
             />
           </label>
         </div>
@@ -187,7 +180,7 @@ export function TripPage() {
                 setStops(next);
               }}
             />
-            <label className="text-sm text-muted">
+            <label className="field">
               Days
               <input
                 type="number"
@@ -198,7 +191,7 @@ export function TripPage() {
                   next[i] = { ...stop, days: Number(e.target.value) || 1 };
                   setStops(next);
                 }}
-                className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
+                className="field-control tabular"
               />
             </label>
             <button
@@ -240,7 +233,7 @@ export function TripPage() {
       {result && (
         <section className="bento space-y-3 p-5">
           <div className="flex flex-wrap items-end justify-between gap-2">
-            <h2 className="display text-xl">Estimate</h2>
+            <h2 className="display display-sm">Estimate</h2>
             <div className="text-right">
               <div className="text-xs text-muted">{result.totalDays} days</div>
               <div className="text-lg font-semibold tabular text-emerald">
@@ -251,8 +244,15 @@ export function TripPage() {
           <div className="space-y-2">
             {result.stops.map((s) => (
               <div key={s.city.slug + s.days} className="surface p-3 text-sm">
-                <div className="font-medium">
-                  {s.city.name} · {s.days}d · {s.city.signatureDish.name}
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="font-medium">
+                    {s.city.name} · {s.days}d · {s.city.signatureDish.name}
+                  </div>
+                  <BookingHandoff
+                    cityName={s.city.name}
+                    country={s.city.country}
+                    compact
+                  />
                 </div>
                 <div className="mt-1 grid grid-cols-2 gap-2 text-xs text-muted sm:grid-cols-4">
                   <span>Meals {formatMoney(s.meals, result.homeCurrency)}</span>
@@ -272,6 +272,7 @@ export function TripPage() {
             ))}
           </div>
           <p className="text-xs text-muted">{result.fxNote}</p>
+          <TripPrintSheet name={tripName} result={result} />
         </section>
       )}
     </main>

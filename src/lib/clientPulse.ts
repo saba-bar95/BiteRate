@@ -194,9 +194,7 @@ async function getWeather(
   }
 }
 
-async function getWiki(
-  slug: string,
-): Promise<{
+async function getWiki(slug: string): Promise<{
   wiki: WikiDishSummary | null;
   status: SourcesStatus["wikipedia"];
 }> {
@@ -235,9 +233,7 @@ async function getWiki(
   }
 }
 
-async function getCountry(
-  iso2: string,
-): Promise<{
+async function getCountry(iso2: string): Promise<{
   country: CountryMeta | null;
   status: SourcesStatus["countries"];
 }> {

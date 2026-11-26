@@ -1,14 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { PriceAlert } from "@shared/features";
-import { ErrorBanner } from "../components/ErrorBanner";
+import { CatalogErrorBanner } from "../components/CatalogErrorBanner";
 import { PageHeader } from "../components/PageHeader";
 import { PrimaryButton } from "../components/PrimaryButton";
+import { FieldSelect } from "../components/Select";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { useAsyncAction } from "../hooks/useAsyncAction";
 import { useCitiesCatalog } from "../hooks/useCitiesCatalog";
 import { useSeo } from "../hooks/useSeo";
+import { Toast } from "../components/Toast";
 import { checkAlerts } from "../lib/api";
 import { formatPct } from "../lib/format";
+import {
+  fireAlertNotification,
+  loadNotifyPrefs,
+  requestNotifyPermission,
+  saveNotifyPrefs,
+  type NotifyPrefs,
+} from "../lib/notify";
 import {
   loadLocalSync,
   removeAlert,
@@ -21,11 +31,16 @@ export function AlertsPage() {
   useSeo(
     "FX Alerts",
     "Watch FX pairs and get local threshold alerts for currency moves.",
+    { noIndex: true },
   );
   const { cities, error: catalogError, reload } = useCitiesCatalog();
   const currencies = useMemo(
     () => [...new Set(cities.map((c) => c.currencyCode))].sort(),
     [cities],
+  );
+  const currencyOptions = useMemo(
+    () => currencies.map((c) => ({ value: c, label: c })),
+    [currencies],
   );
   const [searchParams, setSearchParams] = useSearchParams();
   const [alerts, setAlerts] = useState<PriceAlert[]>(
@@ -39,91 +54,131 @@ export function AlertsPage() {
   const [label, setLabel] = useState(
     searchParams.get("label") || "GEL getting cheaper",
   );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [notifyPrefs, setNotifyPrefs] = useState<NotifyPrefs>(() =>
+    loadNotifyPrefs(),
+  );
 
   const persist = (next: PriceAlert[]) => {
     setAlerts(next);
     replaceAlerts(next);
   };
 
-  const runCheck = async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const {
+    loading,
+    error,
+    run: runCheck,
+  } = useAsyncAction(
+    async () => {
       const { alerts: checked } = await checkAlerts(alerts);
       persist(checked);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Check failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+      const fired = checked.filter((a) => a.triggered);
+      for (const a of fired) {
+        fireAlertNotification(
+          a.label || "BiteRate FX alert",
+          `${a.fromCurrency}→${a.toCurrency} hit ${a.thresholdPct}%.`,
+        );
+      }
+      if (fired.length) {
+        setToast(
+          `${fired.length} alert${fired.length === 1 ? "" : "s"} triggered`,
+        );
+      }
+    },
+    "Check failed",
+    [alerts],
+  );
 
   useEffect(() => {
     if (alerts.length) void runCheck();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 2800);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
   return (
-    <main className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
+    <main className="page-shell mx-auto max-w-4xl space-y-4">
       <PageHeader
         eyebrow="FX alerts"
         title="Watch currency moves"
-        description="Alerts are stored locally (and syncable). They evaluate when you open this page — email/push can plug in later."
+        description="Alerts are stored locally (and syncable). Enable browser notifications to get a desktop ping when thresholds fire."
       />
 
-      {(error || catalogError) && (
-        <ErrorBanner
-          message={error || catalogError || ""}
-          onRetry={() => (catalogError ? reload() : void runCheck())}
-        />
-      )}
+      <section className="surface flex flex-wrap items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-sm font-medium text-ink">Desktop notifications</p>
+          <p className="text-xs text-muted">
+            Permission: {notifyPrefs.permission}
+            {notifyPrefs.enabled ? " · enabled" : " · off"}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="rounded-md border border-white/12 px-3 py-1.5 text-sm text-ink"
+            onClick={() => {
+              void requestNotifyPermission().then(setNotifyPrefs);
+            }}
+          >
+            Allow notifications
+          </button>
+          <button
+            type="button"
+            className="rounded-md border border-white/12 px-3 py-1.5 text-sm text-muted"
+            onClick={() => {
+              const next = saveNotifyPrefs({
+                ...notifyPrefs,
+                enabled: !notifyPrefs.enabled,
+              });
+              setNotifyPrefs(next);
+            }}
+          >
+            {notifyPrefs.enabled ? "Disable" : "Enable"}
+          </button>
+        </div>
+      </section>
+
+      <CatalogErrorBanner
+        pageError={error}
+        catalogError={catalogError}
+        onReloadCatalog={reload}
+        onRetryPage={() => void runCheck()}
+      />
 
       <section className="bento grid gap-3 p-5 sm:grid-cols-2">
-        <label className="text-sm text-muted">
-          From currency
-          <select
-            value={fromCurrency}
-            onChange={(e) => setFrom(e.target.value)}
-            className="mt-1 h-10 w-full cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
-          >
-            {currencies.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm text-muted">
-          To currency
-          <select
-            value={toCurrency}
-            onChange={(e) => setTo(e.target.value)}
-            className="mt-1 h-10 w-full cursor-pointer rounded-md border border-white/10 bg-panel px-3 text-sm"
-          >
-            {currencies.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm text-muted">
+        <FieldSelect
+          label="From currency"
+          value={fromCurrency}
+          options={currencyOptions}
+          onChange={setFrom}
+          searchable
+        />
+        <FieldSelect
+          label="To currency"
+          value={toCurrency}
+          options={currencyOptions}
+          onChange={setTo}
+          searchable
+        />
+        <label className="field">
           Threshold %
           <input
             value={threshold}
             onChange={(e) => setThreshold(e.target.value)}
-            className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm tabular"
+            className="field-control tabular"
             placeholder="e.g. -2"
           />
         </label>
-        <label className="text-sm text-muted">
+        <label className="field">
           Label
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className="mt-1 h-10 w-full rounded-md border border-white/10 bg-panel px-3 text-sm"
+            className="field-control"
           />
         </label>
         <PrimaryButton
@@ -156,7 +211,7 @@ export function AlertsPage() {
 
       <section className="bento space-y-3 p-5">
         <div className="flex items-center justify-between">
-          <h2 className="display text-xl">Your alerts</h2>
+          <h2 className="display display-sm">Your alerts</h2>
           <button
             type="button"
             onClick={() => void runCheck()}
@@ -201,6 +256,8 @@ export function AlertsPage() {
           </div>
         ))}
       </section>
+
+      {toast ? <Toast message={toast} /> : null}
     </main>
   );
 }

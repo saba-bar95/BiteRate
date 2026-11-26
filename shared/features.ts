@@ -134,3 +134,39 @@ export interface ColSnapshot {
   transitTicket?: number;
   oneBedRentCenter?: number;
 }
+
+export interface DecideResponse {
+  fromSlug: string;
+  toSlug: string;
+  mode: "go" | "relocate";
+  budget: number;
+  shouldGo: import("./decisionMath.ts").ShouldGoResult;
+  relocate: import("./decisionMath.ts").RelocateVsVisitResult;
+  ppIndex: number;
+  tripDailyUsd: number;
+  monthlyLocalUsd: number;
+  fxChange30dPct: number | null;
+  weatherComfort: number;
+  fromName: string;
+  toName: string;
+  generatedAt: string;
+}
+
+export interface SimilarCitiesResponse {
+  seed: { slug: string; name: string; country: string };
+  cities: Array<{
+    slug: string;
+    name: string;
+    country: string;
+    currencyCode: string;
+    dish: string;
+  }>;
+}
+
+export interface SeasonalityResponse {
+  city: { slug: string; name: string; country: string; lat: number };
+  months: import("./decisionMath.ts").MonthHint[];
+  bestMonths: number[];
+  fxNote: string;
+  generatedAt: string;
+}

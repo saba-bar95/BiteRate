@@ -1,7 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="14" fill="#09090B"/>
-  <rect x="4" y="4" width="56" height="56" rx="12" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
-  <path d="M18 40c4-10 10-16 14-18 4 2 10 8 14 18" stroke="#10B981" stroke-width="3" stroke-linecap="round"/>
-  <circle cx="32" cy="24" r="4" fill="#F59E0B"/>
-  <path d="M22 44h20" stroke="rgba(255,255,255,0.35)" stroke-width="2" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="8" fill="#0c0c0b"/>
+  <!-- Lucide Earth / Globe2 — same mark as header logo -->
+  <g
+    transform="translate(4 4)"
+    stroke="#3d9b78"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M21.54 15H17a2 2 0 0 0-2 2v4.54"/>
+    <path d="M7 3.34V5a3 3 0 0 0 3 3a2 2 0 0 1 2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2c0-1.1.9-2 2-2h3.17"/>
+    <path d="M11 21.95V18a2 2 0 0 0-2-2a2 2 0 0 1-2-2v-1a2 2 0 0 0-2-2H2.05"/>
+  </g>
 </svg>

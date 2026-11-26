@@ -48,3 +48,17 @@ export function FetchOverlay({
     </div>
   );
 }
+
+export function LoadingPane({
+  label,
+  className = "flex min-h-[40vh] items-center justify-center text-muted",
+}: {
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <LoadingSpinner label={label} />
+    </div>
+  );
+}

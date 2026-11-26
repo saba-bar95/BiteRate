@@ -1,13 +1,27 @@
-import { getCity } from "../../shared/cities.ts";
+import { getCity, listCities } from "../../shared/cities.ts";
+import {
+  estimateMonthlyLocalUsd,
+  estimateTripDailyUsd,
+  relocateVsVisit,
+  seasonalityHints,
+  shouldGoScore,
+  similarCities,
+  weatherComfortFromTempC,
+} from "../../shared/decisionMath.ts";
 import type {
+  DecideResponse,
   FxStoryResult,
+  SeasonalityResponse,
+  SimilarCitiesResponse,
   SpendCompareResult,
   TripPlanInput,
   TripPlanResult,
   WageEquivalentInput,
   WageEquivalentResult,
 } from "../../shared/features.ts";
-import { convertAmount, getFxQuote, getUsdRateMap } from "./fx.ts";
+import { convertAmount, purchasingPowerScore } from "../../shared/pulseMath.ts";
+import { getFxQuote, getUsdRateMap } from "./fx.ts";
+import { getWeather } from "./weather.ts";
 
 export async function buildTripPlan(
   input: TripPlanInput,
@@ -282,5 +296,114 @@ export function buildSpendCompare(
     scenarios,
     bestId: best.id,
     savingsVsWorst: worst.fee - best.fee,
+  };
+}
+
+export async function buildDecide(params: {
+  fromSlug: string;
+  toSlug: string;
+  budget: number;
+  mode: "go" | "relocate";
+  days: number;
+  months: number;
+}): Promise<DecideResponse | null> {
+  const from = getCity(params.fromSlug);
+  const to = getCity(params.toSlug);
+  if (!from || !to) return null;
+
+  const [{ rates }, fxRes, weatherRes] = await Promise.all([
+    getUsdRateMap(),
+    getFxQuote(from.currencyCode, to.currencyCode),
+    getWeather(to.lat, to.lon),
+  ]);
+
+  const ppIndex = purchasingPowerScore(to, rates);
+  const tripDailyUsd = estimateTripDailyUsd({
+    rentMonthlyLocal: to.localBaselinePrices.oneBedRentCenter,
+    burgerLocal: to.localBaselinePrices.burgerMeal,
+    transitLocal: to.localBaselinePrices.transitTicket,
+    dishLocal: to.signatureDish.localPrice,
+    currency: to.currencyCode,
+    fxRates: rates,
+  });
+  const monthlyLocalUsd = estimateMonthlyLocalUsd({
+    rentMonthlyLocal: to.localBaselinePrices.oneBedRentCenter,
+    burgerLocal: to.localBaselinePrices.burgerMeal,
+    currency: to.currencyCode,
+    fxRates: rates,
+  });
+  const weatherComfort = weatherComfortFromTempC(
+    weatherRes.weather?.temperatureC,
+  );
+  const fxChange =
+    fxRes.status === "unavailable" ? null : fxRes.quote.change30dPct;
+
+  const shouldGo = shouldGoScore({
+    ppIndex,
+    fxChange30dPct: fxChange,
+    weatherComfort,
+    tripDailyUsd,
+  });
+  const relocate = relocateVsVisit({
+    monthlyLocalUsd,
+    tripDailyUsd,
+    daysVisit: params.days,
+    monthsStay: params.months,
+  });
+
+  return {
+    fromSlug: from.slug,
+    toSlug: to.slug,
+    mode: params.mode,
+    budget: params.budget,
+    shouldGo,
+    relocate,
+    ppIndex,
+    tripDailyUsd,
+    monthlyLocalUsd,
+    fxChange30dPct: fxChange,
+    weatherComfort,
+    fromName: from.name,
+    toName: to.name,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+export function buildSimilarCities(
+  slug: string,
+  limit = 6,
+): SimilarCitiesResponse | null {
+  const seed = getCity(slug);
+  if (!seed) return null;
+  const cities = similarCities(seed, listCities(), limit);
+  return {
+    seed: { slug: seed.slug, name: seed.name, country: seed.country },
+    cities: cities.map((c) => ({
+      slug: c.slug,
+      name: c.name,
+      country: c.country,
+      currencyCode: c.currencyCode,
+      dish: c.signatureDish.name,
+    })),
+  };
+}
+
+export async function buildSeasonality(
+  slug: string,
+): Promise<SeasonalityResponse | null> {
+  const city = getCity(slug);
+  if (!city) return null;
+  const { quote, status } = await getFxQuote("USD", city.currencyCode);
+  const history = status === "unavailable" ? [] : quote.history30d;
+  const hints = seasonalityHints(city.lat, history);
+  return {
+    city: {
+      slug: city.slug,
+      name: city.name,
+      country: city.country,
+      lat: city.lat,
+    },
+    ...hints,
+    generatedAt: new Date().toISOString(),
   };
 }

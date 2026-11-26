@@ -1,6 +1,9 @@
 import type { CitiesListResponse, PulseResponse } from "@shared/types";
 import type {
+  DecideResponse,
   FxStoryResult,
+  SeasonalityResponse,
+  SimilarCitiesResponse,
   SpendCompareResult,
   TripPlanInput,
   TripPlanResult,
@@ -8,7 +11,11 @@ import type {
   WageEquivalentResult,
   PriceAlert,
 } from "@shared/features";
-import { buildClientCities, buildClientPulse } from "./clientPulse";
+import {
+  buildClientDecide,
+  buildClientSeasonality,
+  buildClientSimilar,
+} from "./clientDecide";
 
 export class ApiError extends Error {
   status: number;
@@ -24,6 +31,14 @@ export class ApiError extends Error {
           ? "rate_limited"
           : "error");
   }
+}
+
+export function isAbortError(err: unknown): boolean {
+  return err instanceof Error && err.name === "AbortError";
+}
+
+export function toErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message ? err.message : fallback;
 }
 
 export type CityCatalogItem = {
@@ -78,9 +93,10 @@ export async function fetchCities(
       return data;
     }
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    if (isAbortError(err)) throw err;
     // fall through
   }
+  const { buildClientCities } = await import("./clientPulse");
   const fallback = await buildClientCities();
   citiesCache = { data: fallback, at: Date.now() };
   return fallback;
@@ -108,8 +124,9 @@ export async function fetchPulse(
     });
     if (res.ok) return (await res.json()) as PulseResponse;
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    if (isAbortError(err)) throw err;
   }
+  const { buildClientPulse } = await import("./clientPulse");
   return buildClientPulse(params);
 }
 
@@ -233,4 +250,78 @@ export async function pushSync(data: UserSyncPayload, signal?: AbortSignal) {
     signal,
   });
   return readJson<{ ok: boolean; data: UserSyncPayload }>(res);
+}
+
+export async function fetchDecide(
+  params: {
+    from: string;
+    to: string;
+    budget: number;
+    mode: "go" | "relocate";
+    days?: number;
+    months?: number;
+  },
+  signal?: AbortSignal,
+): Promise<DecideResponse> {
+  const qs = new URLSearchParams({
+    from: params.from,
+    to: params.to,
+    budget: String(params.budget),
+    mode: params.mode,
+    days: String(params.days ?? 7),
+    months: String(params.months ?? 1),
+  });
+  try {
+    const res = await fetch(`/api/decide?${qs}`, { signal });
+    if (res.ok) return (await res.json()) as DecideResponse;
+  } catch (err) {
+    if (isAbortError(err)) throw err;
+  }
+  const fallback = await buildClientDecide({
+    fromSlug: params.from,
+    toSlug: params.to,
+    budget: params.budget,
+    mode: params.mode,
+    days: params.days ?? 7,
+    months: params.months ?? 1,
+  });
+  if (!fallback) throw new ApiError("Unable to build decision", 500);
+  return fallback;
+}
+
+export async function fetchSimilarCities(
+  slug: string,
+  limit = 6,
+  signal?: AbortSignal,
+): Promise<SimilarCitiesResponse> {
+  try {
+    const res = await fetch(
+      `/api/cities/${encodeURIComponent(slug)}/similar?limit=${limit}`,
+      { signal },
+    );
+    if (res.ok) return (await res.json()) as SimilarCitiesResponse;
+  } catch (err) {
+    if (isAbortError(err)) throw err;
+  }
+  const fallback = await buildClientSimilar(slug, limit);
+  if (!fallback) throw new ApiError("City not found", 404, "not_found");
+  return fallback;
+}
+
+export async function fetchSeasonality(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<SeasonalityResponse> {
+  try {
+    const res = await fetch(
+      `/api/cities/${encodeURIComponent(slug)}/seasonality`,
+      { signal },
+    );
+    if (res.ok) return (await res.json()) as SeasonalityResponse;
+  } catch (err) {
+    if (isAbortError(err)) throw err;
+  }
+  const fallback = await buildClientSeasonality(slug);
+  if (!fallback) throw new ApiError("City not found", 404, "not_found");
+  return fallback;
 }

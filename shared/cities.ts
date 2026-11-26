@@ -1,11 +1,12 @@
 import type { City } from "./types.ts";
+import { EXTRA_CITIES } from "./citiesExtra.ts";
 
 /**
- * Curated global city seed (100+). Multiple cities per country are intentional.
+ * Curated global city seed (200+). Multiple cities per country are intentional.
  * Baseline prices are approximate local-currency estimates for demo comparisons.
  * Live FX / weather / wiki / country / GDP enrich this seed via the BiteRate API.
  */
-export const CITIES: City[] = [
+const BASE_CITIES: City[] = [
   {
     slug: "tbilisi",
     name: "Tbilisi",
@@ -2886,6 +2887,19 @@ export const CITIES: City[] = [
     },
   },
 ];
+
+function mergeCities(base: City[], extra: City[]): City[] {
+  const seen = new Set(base.map((c) => c.slug));
+  const merged = [...base];
+  for (const city of extra) {
+    if (seen.has(city.slug)) continue;
+    seen.add(city.slug);
+    merged.push(city);
+  }
+  return merged;
+}
+
+export const CITIES: City[] = mergeCities(BASE_CITIES, EXTRA_CITIES);
 
 export const CITY_BY_SLUG = Object.fromEntries(
   CITIES.map((city) => [city.slug, city]),

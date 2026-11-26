@@ -1,20 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import type { CitiesListResponse, PulseResponse } from "@shared/types";
+import { explainDishMetric, freshnessMeta } from "@shared/decisionMath";
 import { AffiliateStrip } from "../components/AffiliateStrip";
 import { BasketCard } from "../components/BasketCard";
 import { CityPulseStrip } from "../components/CityPulseStrip";
 import { ControlBar } from "../components/ControlBar";
 import { DishHeroCard } from "../components/DishHeroCard";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { ExplainMetric } from "../components/ExplainMetric";
+import { FreshnessBadges } from "../components/FreshnessBadge";
 import { Leaderboard } from "../components/Leaderboard";
 import { FetchOverlay, LoadingSpinner } from "../components/LoadingSpinner";
 import { LoadingSkeleton } from "../components/LoadingSkeleton";
+import { PresetChips } from "../components/PresetChips";
 import { ShareModal } from "../components/ShareModal";
-import { StatusPill } from "../components/StatusPill";
+import { ShortlistButton } from "../components/ShortlistButton";
 import { Toast } from "../components/Toast";
 import { useComparisonState } from "../hooks/useComparisonState";
 import { useSeo } from "../hooks/useSeo";
-import { fetchCities, fetchPulse } from "../lib/api";
+import { fetchCities, fetchPulse, isAbortError } from "../lib/api";
+import { hasOverrides } from "../lib/overrides";
 import { uid, upsertSaved } from "../lib/storage";
 
 export function HomePage() {
@@ -28,7 +34,6 @@ export function HomePage() {
     setBudget,
     setMode,
     swap,
-    syncUrl,
     shareUrl,
   } = useComparisonState();
 
@@ -58,7 +63,7 @@ export function HomePage() {
         setCitiesLoading(false);
       })
       .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (isAbortError(err)) return;
         setError(err instanceof Error ? err.message : "Failed to load cities");
         setCitiesLoading(false);
       });
@@ -88,7 +93,7 @@ export function HomePage() {
           setLoading(false);
         })
         .catch((err: unknown) => {
-          if (err instanceof DOMException && err.name === "AbortError") return;
+          if (isAbortError(err)) return;
           setError(
             err instanceof Error ? err.message : "Failed to load comparison",
           );
@@ -162,64 +167,42 @@ export function HomePage() {
         onSave={onSave}
       />
 
-      <main className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="display text-3xl sm:text-4xl">
+      <main className="page-shell mx-auto max-w-7xl !pt-[var(--space-page-y)] !pb-8">
+        <div className="mb-[var(--space-section)] flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="display display-xl">
               How far does your money go?
             </h1>
-            <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted">
+            <p className="lede mt-2">
               Live FX, local wages, weather, and cultural dish purchasing power
               — from Khinkali in Tbilisi to Ramen in Tokyo.
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {[
-                { from: "new-york", to: "tbilisi", label: "NYC → Tbilisi" },
-                { from: "london", to: "lisbon", label: "London → Lisbon" },
-                { from: "berlin", to: "bangkok", label: "Berlin → Bangkok" },
-                { from: "tokyo", to: "osaka", label: "Tokyo → Osaka" },
-              ].map((p) => (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => syncUrl({ from: p.from, to: p.to })}
-                  className="cursor-pointer rounded-md border border-white/10 bg-panel px-3 py-1.5 text-sm text-muted transition hover:border-emerald/40 hover:text-emerald"
-                >
-                  {p.label}
-                </button>
-              ))}
+            <div className="mt-3">
+              <PresetChips />
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Link
+                to={`/decide?from=${fromSlug}&to=${toSlug}&budget=${budget}`}
+                className="rounded-md border border-emerald/30 bg-emerald/10 px-3 py-1.5 text-sm text-emerald transition hover:bg-emerald/15"
+              >
+                Should I go?
+              </Link>
+              <ShortlistButton slug={toSlug} />
+              <Link
+                to={`/shortlist`}
+                className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-muted transition hover:text-ink"
+              >
+                Open shortlist
+              </Link>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {loading && pulse && (
-              <LoadingSpinner
-                size="sm"
-                label="Refreshing live data…"
-                className="mr-1"
-              />
-            )}
-            {pulse && (
-              <>
-                <StatusPill label="FX" status={pulse.sourcesStatus.fx} />
-                <StatusPill
-                  label="Weather"
-                  status={pulse.sourcesStatus.weather}
-                />
-                <StatusPill
-                  label="Wiki"
-                  status={pulse.sourcesStatus.wikipedia}
-                />
-                <StatusPill
-                  label="Countries"
-                  status={pulse.sourcesStatus.countries}
-                />
-                <StatusPill
-                  label="World Bank"
-                  status={pulse.sourcesStatus.worldBank}
-                />
-              </>
-            )}
-          </div>
+          {loading && pulse ? (
+            <LoadingSpinner
+              size="sm"
+              label="Refreshing live data…"
+              className="shrink-0"
+            />
+          ) : null}
         </div>
 
         {error && (
@@ -246,6 +229,16 @@ export function HomePage() {
               }`}
               aria-busy={loading}
             >
+              <FreshnessBadges
+                badges={freshnessMeta({
+                  fxAsOf: pulse.fx?.asOf,
+                  colSource: "seed",
+                  fxStatus: pulse.sourcesStatus.fx,
+                  seedNote:
+                    "Baselines are curated seed data enriched with live FX.",
+                })}
+              />
+
               <div className="grid gap-4 lg:grid-cols-2">
                 <BasketCard
                   fromName={pulse.from.city.name}
@@ -254,15 +247,38 @@ export function HomePage() {
                   basket={pulse.basket}
                   fx={pulse.fx}
                 />
-                <DishHeroCard
-                  cityName={pulse.to.city.name}
-                  currencyCode={pulse.from.city.currencyCode}
-                  dishCurrencyCode={pulse.to.city.currencyCode}
-                  budget={pulse.budget}
-                  budgetMode={pulse.budgetMode}
-                  dish={pulse.dish}
-                  alsoTry={pulse.to.city.alsoTry}
-                />
+                <div>
+                  <DishHeroCard
+                    cityName={pulse.to.city.name}
+                    currencyCode={pulse.from.city.currencyCode}
+                    dishCurrencyCode={pulse.to.city.currencyCode}
+                    budget={pulse.budget}
+                    budgetMode={pulse.budgetMode}
+                    dish={pulse.dish}
+                    alsoTry={pulse.to.city.alsoTry}
+                  />
+                  {pulse.dish ? (
+                    <div className="px-1">
+                      <ExplainMetric>
+                        {explainDishMetric({
+                          dishName: pulse.dish.dishName,
+                          unitLabel: pulse.dish.unitLabel,
+                          localPrice: pulse.dish.localPrice,
+                          budget: pulse.budget,
+                          budgetInLocal:
+                            pulse.dish.localPrice > 0
+                              ? pulse.dish.visitorPortions *
+                                pulse.dish.localPrice
+                              : 0,
+                          homeCurrency: pulse.from.city.currencyCode,
+                          localCurrency: pulse.to.city.currencyCode,
+                          portions: pulse.dish.visitorPortions,
+                          overridden: hasOverrides(toSlug),
+                        })}
+                      </ExplainMetric>
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               <CityPulseStrip from={pulse.from} to={pulse.to} />

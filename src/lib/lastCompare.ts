@@ -23,6 +23,10 @@ export function getLastCompareFrom(): string | null {
   return getLastCompare()?.fromSlug ?? null;
 }
 
+export function getLastCompareTo(): string | null {
+  return getLastCompare()?.toSlug ?? null;
+}
+
 export function setLastCompare(next: LastCompare) {
   try {
     localStorage.setItem(KEY, JSON.stringify(next));

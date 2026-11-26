@@ -75,8 +75,13 @@ type IdentityBase = {
 };
 
 /** A signed-in person. userId is the Cursor user id in sub ("user:<id>"); 0 for a simulated viewer whose sub carries none. */
-export type PersonIdentity = IdentityBase & { kind: "person"; userId: number } &
-  ({ appVisibility: "private" } | { appVisibility: "team"; teamId: number; teamRole: TeamRole });
+export type PersonIdentity = IdentityBase & {
+  kind: "person";
+  userId: number;
+} & (
+    | { appVisibility: "private" }
+    | { appVisibility: "team"; teamId: number; teamRole: TeamRole }
+  );
 
 /**
  * An API key the gate admitted, never a person: email is empty and name is the
@@ -84,16 +89,28 @@ export type PersonIdentity = IdentityBase & { kind: "person"; userId: number } &
  * key's team. On a team app it carries the app's team with teamRole "service";
  * on private and public apps it carries no team.
  */
-export type KeyIdentity = IdentityBase & { kind: "key"; email: ""; emailVerified: false } &
-  ({ ownerUserId: number; ownerTeamId?: undefined } | { ownerTeamId: number; ownerUserId?: undefined }) &
-  ({ appVisibility: "private" | "public" } | { appVisibility: "team"; teamId: number; teamRole: KeyTeamRole });
+export type KeyIdentity = IdentityBase & {
+  kind: "key";
+  email: "";
+  emailVerified: false;
+} & (
+    | { ownerUserId: number; ownerTeamId?: undefined }
+    | { ownerTeamId: number; ownerUserId?: undefined }
+  ) &
+  (
+    | { appVisibility: "private" | "public" }
+    | { appVisibility: "team"; teamId: number; teamRole: KeyTeamRole }
+  );
 
 /** A person or an API key; identity.kind tells them apart. */
 export type VerifiedIdentity = PersonIdentity | KeyIdentity;
 
 export type TeamIdentity = Extract<VerifiedIdentity, { appVisibility: "team" }>;
 
-export type UnverifiedIdentity = { verified: false; reason: IdentityFailureReason };
+export type UnverifiedIdentity = {
+  verified: false;
+  reason: IdentityFailureReason;
+};
 
 export type Identity = VerifiedIdentity | UnverifiedIdentity;
 
@@ -203,8 +220,13 @@ export async function verifyIdentity(token: string): Promise<Identity> {
 /** Where a token came from: x-cursor-identity-v2, x-cursor-identity, or a caller of verifyIdentity. */
 type TokenSource = "v2" | "person" | "forwarded";
 
-async function verifyToken(token: string, source: TokenSource): Promise<Identity> {
-  const appId = trimmed(typeof process === "undefined" ? undefined : process.env.CURSOR_APP_ID);
+async function verifyToken(
+  token: string,
+  source: TokenSource,
+): Promise<Identity> {
+  const appId = trimmed(
+    typeof process === "undefined" ? undefined : process.env.CURSOR_APP_ID,
+  );
   if (appId === "") {
     return { verified: false, reason: "app_id_unset" };
   }
@@ -212,8 +234,11 @@ async function verifyToken(token: string, source: TokenSource): Promise<Identity
     return { verified: false, reason: "malformed_token" };
   }
   const issuer = (
-    trimmed(typeof process === "undefined" ? undefined : process.env.CURSOR_APP_IDENTITY_ISSUER) ||
-    DEFAULT_ISSUER
+    trimmed(
+      typeof process === "undefined"
+        ? undefined
+        : process.env.CURSOR_APP_IDENTITY_ISSUER,
+    ) || DEFAULT_ISSUER
   ).replace(/\/$/, "");
   const parsed = parseToken(token);
   if (parsed === undefined) {
@@ -228,7 +253,12 @@ async function verifyToken(token: string, source: TokenSource): Promise<Identity
   if (key === undefined) {
     return { verified: false, reason: "unknown_key" };
   }
-  const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, parsed.signature, parsed.signed);
+  const valid = await crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    parsed.signature,
+    parsed.signed,
+  );
   if (!valid) {
     return { verified: false, reason: "bad_signature" };
   }
@@ -240,7 +270,10 @@ async function verifyToken(token: string, source: TokenSource): Promise<Identity
     return { verified: false, reason: "wrong_audience" };
   }
   const now = Date.now() / 1000;
-  if (typeof exp !== "number" || (nbf !== undefined && typeof nbf !== "number")) {
+  if (
+    typeof exp !== "number" ||
+    (nbf !== undefined && typeof nbf !== "number")
+  ) {
     return { verified: false, reason: "invalid_claims" };
   }
   if (exp + CLOCK_TOLERANCE_SECONDS < now) {
@@ -271,7 +304,10 @@ function devViewer(): Identity {
   if (typeof process === "undefined") {
     return { verified: false, reason: "missing_header" };
   }
-  if (trimmed(process.env.CURSOR_APP_ID) !== "" || trimmed(process.env.VERCEL) !== "") {
+  if (
+    trimmed(process.env.CURSOR_APP_ID) !== "" ||
+    trimmed(process.env.VERCEL) !== ""
+  ) {
     return { verified: false, reason: "missing_header" };
   }
   const value: unknown = DEV_VIEWER;
@@ -281,7 +317,10 @@ function devViewer(): Identity {
   if (typeof value !== "object" || Array.isArray(value)) {
     return { verified: false, reason: "dev_viewer_invalid" };
   }
-  const { sub, email, name, teamId, teamRole } = value as Record<string, unknown>;
+  const { sub, email, name, teamId, teamRole } = value as Record<
+    string,
+    unknown
+  >;
   if (
     typeof sub !== "string" ||
     sub === "" ||
@@ -323,7 +362,10 @@ function devViewer(): Identity {
     claims.app_visibility = "private";
     return { ...base, appVisibility: "private" };
   }
-  if (typeof teamId === "number" && (teamRole === "admin" || teamRole === "member")) {
+  if (
+    typeof teamId === "number" &&
+    (teamRole === "admin" || teamRole === "member")
+  ) {
     claims.app_visibility = "team";
     claims.team_id = teamId;
     claims.team_role = teamRole;
@@ -333,7 +375,10 @@ function devViewer(): Identity {
 }
 
 /** The identity header's value wherever the request keeps its headers; undefined when there is none or the input is not a request. */
-function identityHeader(request: IdentityRequest, header: string): string | undefined {
+function identityHeader(
+  request: IdentityRequest,
+  header: string,
+): string | undefined {
   if (typeof request !== "object" || request === null) {
     return undefined;
   }
@@ -345,7 +390,9 @@ function identityHeader(request: IdentityRequest, header: string): string | unde
   let value: HeaderValue = headers[header];
   if (value === undefined) {
     // Node lowercases incoming header names; a copy made elsewhere may keep the sender's casing.
-    const key = Object.keys(headers).find((name) => name.toLowerCase() === header);
+    const key = Object.keys(headers).find(
+      (name) => name.toLowerCase() === header,
+    );
     value = key === undefined ? undefined : headers[key];
   }
   if (Array.isArray(value)) {
@@ -364,7 +411,9 @@ function headersOf(request: IdentityRequest): HeadersLike {
   return request as HeadersLike;
 }
 
-function hasGet(headers: HeadersLike): headers is { get(name: string): string | null | undefined } {
+function hasGet(
+  headers: HeadersLike,
+): headers is { get(name: string): string | null | undefined } {
   return typeof (headers as { get?: unknown }).get === "function";
 }
 
@@ -376,10 +425,16 @@ function fail(
   if (options.onFailure === "throw") {
     throw new IdentityError(status, reason);
   }
-  return new Response(JSON.stringify({ error: status === 401 ? "unauthorized" : "forbidden", reason }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
+  return new Response(
+    JSON.stringify({
+      error: status === 401 ? "unauthorized" : "forbidden",
+      reason,
+    }),
+    {
+      status,
+      headers: { "content-type": "application/json" },
+    },
+  );
 }
 
 type ParsedToken = {
@@ -403,7 +458,10 @@ function parseToken(token: string): ParsedToken | undefined {
   if (header === undefined || claims === undefined || signature === undefined) {
     return undefined;
   }
-  if (header.alg !== "RS256" || (header.kid !== undefined && typeof header.kid !== "string")) {
+  if (
+    header.alg !== "RS256" ||
+    (header.kid !== undefined && typeof header.kid !== "string")
+  ) {
     return undefined;
   }
   return {
@@ -433,7 +491,9 @@ function decodeBase64Url(part: string): BufferSource | undefined {
   if (part === "" || !/^[A-Za-z0-9_-]+$/.test(part)) {
     return undefined;
   }
-  const base64 = part.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (part.length % 4)) % 4);
+  const base64 =
+    part.replace(/-/g, "+").replace(/_/g, "/") +
+    "=".repeat((4 - (part.length % 4)) % 4);
   try {
     const binary = atob(base64);
     const bytes = new Uint8Array(new ArrayBuffer(binary.length));
@@ -457,11 +517,17 @@ const keySets = new Map<string, Promise<KeySet>>();
 const failedAt = new Map<string, number>();
 
 /** The issuer's key for kid, from the cached JWKS, refetched once per cooldown when kid is new. */
-async function keyFor(issuer: string, kid: string | undefined): Promise<CryptoKey | undefined> {
+async function keyFor(
+  issuer: string,
+  kid: string | undefined,
+): Promise<CryptoKey | undefined> {
   const cached = loadKeySet(issuer);
   let keySet = await cached;
   let key = pickKey(keySet, kid);
-  if (key === undefined && Date.now() - keySet.fetchedAt > JWKS_REFETCH_COOLDOWN_MS) {
+  if (
+    key === undefined &&
+    Date.now() - keySet.fetchedAt > JWKS_REFETCH_COOLDOWN_MS
+  ) {
     if (keySets.get(issuer) === cached) {
       keySets.delete(issuer);
     }
@@ -471,7 +537,10 @@ async function keyFor(issuer: string, kid: string | undefined): Promise<CryptoKe
   return key;
 }
 
-function pickKey(keySet: KeySet, kid: string | undefined): CryptoKey | undefined {
+function pickKey(
+  keySet: KeySet,
+  kid: string | undefined,
+): CryptoKey | undefined {
   if (kid !== undefined) {
     return keySet.keys.get(kid);
   }
@@ -482,8 +551,13 @@ function loadKeySet(issuer: string): Promise<KeySet> {
   let pending = keySets.get(issuer);
   if (pending === undefined) {
     const lastFailure = failedAt.get(issuer);
-    if (lastFailure !== undefined && Date.now() - lastFailure < JWKS_REFETCH_COOLDOWN_MS) {
-      return Promise.reject(new Error("identity issuer fetch failed recently; not retrying yet"));
+    if (
+      lastFailure !== undefined &&
+      Date.now() - lastFailure < JWKS_REFETCH_COOLDOWN_MS
+    ) {
+      return Promise.reject(
+        new Error("identity issuer fetch failed recently; not retrying yet"),
+      );
     }
     pending = fetchKeySet(issuer).catch((error: unknown) => {
       keySets.delete(issuer);
@@ -502,7 +576,14 @@ async function fetchKeySet(issuer: string): Promise<KeySet> {
   }
   const keys = new Map<string, CryptoKey>();
   for (const candidate of jwks.keys as unknown[]) {
-    const jwk = candidate as { kty?: unknown; kid?: unknown; n?: unknown; e?: unknown; alg?: unknown; use?: unknown };
+    const jwk = candidate as {
+      kty?: unknown;
+      kid?: unknown;
+      n?: unknown;
+      e?: unknown;
+      alg?: unknown;
+      use?: unknown;
+    };
     if (
       jwk.kty !== "RSA" ||
       typeof jwk.kid !== "string" ||
@@ -533,7 +614,9 @@ async function fetchJson(url: string): Promise<Record<string, unknown>> {
   try {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) {
-      throw new Error("identity issuer returned " + response.status + " for " + url);
+      throw new Error(
+        "identity issuer returned " + response.status + " for " + url,
+      );
     }
     const value: unknown = await response.json();
     if (typeof value !== "object" || value === null) {
@@ -546,7 +629,11 @@ async function fetchJson(url: string): Promise<Record<string, unknown>> {
 }
 
 /** Accepts exactly the claim set Cursor issues; anything else is invalid_claims. */
-function identityFromClaims(token: string, claims: IdentityClaims, source: TokenSource): Identity {
+function identityFromClaims(
+  token: string,
+  claims: IdentityClaims,
+  source: TokenSource,
+): Identity {
   const {
     sub,
     exp,
@@ -558,7 +645,8 @@ function identityFromClaims(token: string, claims: IdentityClaims, source: Token
   } = claims;
   // Only the gate signs tokens, and it stamps every preview token's stage;
   // a token without one is from a gate that predates the claim.
-  const stage: IdentityStage = claims.stage === "preview" ? "preview" : "production";
+  const stage: IdentityStage =
+    claims.stage === "preview" ? "preview" : "production";
   if (
     typeof sub !== "string" ||
     typeof exp !== "number" ||
@@ -589,7 +677,9 @@ function identityFromClaims(token: string, claims: IdentityClaims, source: Token
   };
   const personFormat =
     source === "person" ||
-    (source === "forwarded" && claims.ver === undefined && claims.kind === undefined);
+    (source === "forwarded" &&
+      claims.ver === undefined &&
+      claims.kind === undefined);
   if (personFormat) {
     if (claims.kind !== undefined && claims.kind !== "person") {
       return { verified: false, reason: "invalid_claims" };
@@ -605,7 +695,11 @@ function identityFromClaims(token: string, claims: IdentityClaims, source: Token
   if (userId === null) {
     return { verified: false, reason: "invalid_claims" };
   }
-  const person = { ...base, kind: "person" as const, userId: Number(userId[1]) };
+  const person = {
+    ...base,
+    kind: "person" as const,
+    userId: Number(userId[1]),
+  };
   if (appVisibility === "private") {
     return { ...person, appVisibility };
   }
@@ -624,7 +718,10 @@ function identityFromClaims(token: string, claims: IdentityClaims, source: Token
  * An API key: no email, exactly one owner, and team claims only on a team
  * app, where its role is "service", so no key ever reads as a member or admin.
  */
-function keyIdentityFromClaims(base: IdentityBase, claims: IdentityClaims): Identity {
+function keyIdentityFromClaims(
+  base: IdentityBase,
+  claims: IdentityClaims,
+): Identity {
   const {
     owner_user_id: ownerUserId,
     owner_team_id: ownerTeamId,
@@ -638,11 +735,25 @@ function keyIdentityFromClaims(base: IdentityBase, claims: IdentityClaims): Iden
       : typeof ownerTeamId === "number" && ownerUserId === undefined
         ? { ownerTeamId }
         : undefined;
-  if (base.email !== "" || base.emailVerified !== false || owner === undefined) {
+  if (
+    base.email !== "" ||
+    base.emailVerified !== false ||
+    owner === undefined
+  ) {
     return { verified: false, reason: "invalid_claims" };
   }
-  const key = { ...base, email: "" as const, emailVerified: false as const, kind: "key" as const, ...owner };
-  if (appVisibility === "team" && typeof teamId === "number" && teamRole === "service") {
+  const key = {
+    ...base,
+    email: "" as const,
+    emailVerified: false as const,
+    kind: "key" as const,
+    ...owner,
+  };
+  if (
+    appVisibility === "team" &&
+    typeof teamId === "number" &&
+    teamRole === "service"
+  ) {
     return { ...key, appVisibility, teamId, teamRole };
   }
   if (
