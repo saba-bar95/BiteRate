@@ -121,7 +121,7 @@ export function Select({
       if (e.key === "Escape") {
         e.preventDefault();
         close();
-        triggerRef.current?.focus();
+        triggerRef.current?.focus({ preventScroll: true });
       }
     };
     document.addEventListener("mousedown", onPointer);
@@ -139,21 +139,31 @@ export function Select({
       filtered.findIndex((o) => o.value === value),
     );
     setActiveIndex(idx === -1 ? 0 : idx);
-    if (enableSearch) searchRef.current?.focus();
+    // preventScroll: focusing the filter must not jump the page
+    if (enableSearch) searchRef.current?.focus({ preventScroll: true });
   }, [open, value, filtered, enableSearch]);
 
   useEffect(() => {
     if (!open) return;
-    const el = listRef.current?.querySelector<HTMLElement>(
+    const list = listRef.current;
+    const el = list?.querySelector<HTMLElement>(
       `[data-index="${activeIndex}"]`,
     );
-    el?.scrollIntoView({ block: "nearest" });
+    if (!list || !el) return;
+    // Keep the active option visible inside the menu only (no page scroll)
+    const listRect = list.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    if (elRect.top < listRect.top) {
+      list.scrollTop -= listRect.top - elRect.top;
+    } else if (elRect.bottom > listRect.bottom) {
+      list.scrollTop += elRect.bottom - listRect.bottom;
+    }
   }, [activeIndex, open]);
 
   const pick = (next: string) => {
     onChange(next);
     close();
-    triggerRef.current?.focus();
+    triggerRef.current?.focus({ preventScroll: true });
   };
 
   const moveActive = (delta: number) => {
