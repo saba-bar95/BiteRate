@@ -67,7 +67,7 @@ npm run dev
 - Web UI: `http://127.0.0.1:3847` (Vite proxies `/api` → API)
 - API: `http://127.0.0.1:3848`
 
-`npm run dev` starts **API + Vite** together (`tsx watch` + Vite). Both must be listening; if the API is down, the proxy surfaces `ECONNREFUSED` and the UI shows a friendly network error banner (many tools also fall back to client-side math).
+`npm run dev` starts **one Vite process** with the Hono API mounted at `/api` (no separate `:3848` server, so no local proxy 502s). Use `npm run dev:api` / `npm run dev:split` only if you want the old two-process setup.
 
 ### Vercel
 
@@ -83,9 +83,10 @@ The UI includes **Vercel Web Analytics** and **Speed Insights**. They only send 
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | API + Vite concurrently |
-| `npm run dev:web` | Vite only (port 3847) |
-| `npm run dev:api` | API only (port 3848) |
+| `npm run dev` | Vite + in-process `/api` (port 3847) |
+| `npm run dev:web` | Same as `dev` |
+| `npm run dev:api` | Standalone API only (port 3848) |
+| `npm run dev:split` | Old two-process API+Vite via concurrently |
 | `npm run sitemap` | Regenerate sitemap + robots from city catalog |
 | `npm run build:api` | Bundle Hono API → `api/app.mjs` for Vercel |
 | `npm run build` | Sitemap + API bundle + typecheck + Vite build |
