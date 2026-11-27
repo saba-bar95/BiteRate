@@ -12,7 +12,7 @@ import { useCitiesCatalog } from "../hooks/useCitiesCatalog";
 import { useSeo } from "../hooks/useSeo";
 import { fetchTrip } from "../lib/api";
 import { formatMoney, formatNumber } from "../lib/format";
-import { loadLocalSync, saveLocalSync, uid } from "../lib/storage";
+import { loadLocalSync, uid, upsertTrip } from "../lib/storage";
 import { TRIP_RESTORE_KEY } from "../lib/tripRestore";
 
 export function TripPage() {
@@ -110,20 +110,20 @@ export function TripPage() {
   }, []);
 
   const saveTrip = () => {
-    const data = loadLocalSync();
-    saveLocalSync({
-      ...data,
-      trips: [
-        {
-          id: uid("trip"),
-          name: tripName,
-          plan: { homeCurrency, stops },
-          savedAt: new Date().toISOString(),
-        },
-        ...data.trips,
-      ].slice(0, 20),
+    const existingId = searchParams.get("trip");
+    const id = existingId || uid("trip");
+    upsertTrip({
+      id,
+      name: tripName,
+      plan: { homeCurrency, stops },
+      savedAt: new Date().toISOString(),
     });
-    setToast("Trip saved locally");
+    if (!existingId) {
+      const params = new URLSearchParams(searchParams);
+      params.set("trip", id);
+      setSearchParams(params, { replace: true });
+    }
+    setToast(existingId ? "Trip updated locally" : "Trip saved locally");
     window.setTimeout(() => setToast(null), 2000);
   };
 

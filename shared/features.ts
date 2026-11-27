@@ -76,6 +76,8 @@ export interface FxStoryResult {
   cityName: string;
   dishName: string;
   points: FxStoryPoint[];
+  /** FX quote was unavailable — points may be placeholder/1:1. */
+  fxUnavailable?: boolean;
 }
 
 export interface SpendScenario {
@@ -143,6 +145,7 @@ export interface DecideResponse {
   shouldGo: import("./decisionMath.ts").ShouldGoResult;
   relocate: import("./decisionMath.ts").RelocateVsVisitResult;
   ppIndex: number;
+  homePpIndex?: number;
   tripDailyUsd: number;
   monthlyLocalUsd: number;
   fxChange30dPct: number | null;
@@ -150,6 +153,8 @@ export interface DecideResponse {
   fromName: string;
   toName: string;
   generatedAt: string;
+  /** True when built client-side because /api/decide was unreachable. */
+  degraded?: boolean;
 }
 
 export interface SimilarCitiesResponse {

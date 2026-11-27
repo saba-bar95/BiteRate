@@ -193,7 +193,22 @@ export async function buildFxStory(params: {
   const to = getCity(params.toSlug);
   if (!from || !to || params.budget <= 0) return null;
 
-  const { quote } = await getFxQuote(from.currencyCode, to.currencyCode);
+  const { quote, status } = await getFxQuote(
+    from.currencyCode,
+    to.currencyCode,
+  );
+  const fxUnavailable = status === "unavailable";
+  if (fxUnavailable && from.currencyCode !== to.currencyCode) {
+    return {
+      fromCurrency: from.currencyCode,
+      toCurrency: to.currencyCode,
+      budget: params.budget,
+      cityName: to.name,
+      dishName: to.signatureDish.name,
+      points: [],
+      fxUnavailable: true,
+    };
+  }
   const { rates } = await getUsdRateMap();
   const history = quote.history30d;
   const latest = quote.rate;
@@ -250,6 +265,7 @@ export async function buildFxStory(params: {
     cityName: to.name,
     dishName: to.signatureDish.name,
     points,
+    fxUnavailable: false,
   };
 }
 
@@ -318,6 +334,7 @@ export async function buildDecide(params: {
   ]);
 
   const ppIndex = purchasingPowerScore(to, rates);
+  const homePpIndex = purchasingPowerScore(from, rates);
   const tripDailyUsd = estimateTripDailyUsd({
     rentMonthlyLocal: to.localBaselinePrices.oneBedRentCenter,
     burgerLocal: to.localBaselinePrices.burgerMeal,
@@ -337,12 +354,21 @@ export async function buildDecide(params: {
   );
   const fxChange =
     fxRes.status === "unavailable" ? null : fxRes.quote.change30dPct;
+  const budgetUsd = convertAmount(
+    params.budget,
+    from.currencyCode,
+    "USD",
+    rates,
+  );
 
   const shouldGo = shouldGoScore({
     ppIndex,
+    homePpIndex,
     fxChange30dPct: fxChange,
     weatherComfort,
     tripDailyUsd,
+    budgetUsd,
+    visitDays: params.days,
   });
   const relocate = relocateVsVisit({
     monthlyLocalUsd,
@@ -359,6 +385,7 @@ export async function buildDecide(params: {
     shouldGo,
     relocate,
     ppIndex,
+    homePpIndex,
     tripDailyUsd,
     monthlyLocalUsd,
     fxChange30dPct: fxChange,

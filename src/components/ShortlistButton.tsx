@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ListPlus, ListX } from "lucide-react";
 import {
   addToShortlist,
@@ -8,6 +8,10 @@ import {
 
 export function ShortlistButton({ slug }: { slug: string }) {
   const [on, setOn] = useState(() => isOnShortlist(slug));
+
+  useEffect(() => {
+    setOn(isOnShortlist(slug));
+  }, [slug]);
 
   const toggle = () => {
     if (on) {

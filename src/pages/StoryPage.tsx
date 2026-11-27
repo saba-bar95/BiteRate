@@ -115,39 +115,48 @@ export function StoryPage() {
             {story.budget} {story.fromCurrency} → {story.dishName} in{" "}
             {story.cityName}
           </h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={story.points}>
-                <XAxis dataKey="label" stroke="#9a968c" fontSize={11} />
-                <YAxis stroke="#9a968c" fontSize={11} />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--color-panel, #151513)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                  }}
-                />
-                <Bar
-                  dataKey="dishPortions"
-                  fill="#3d9b78"
-                  radius={4}
-                  isAnimationActive={!reducedMotion}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-4">
-            {story.points.map((p) => (
-              <div key={p.label} className="surface p-3 text-sm">
-                <div className="text-xs text-muted">{p.label}</div>
-                <div className="mt-1 font-medium tabular">
-                  {formatNumber(p.dishPortions, 2)} portions
-                </div>
-                <div className="text-xs tabular text-muted">
-                  rate {formatNumber(p.rate, 4)}
-                </div>
+          {story.fxUnavailable || story.points.length === 0 ? (
+            <p className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber">
+              FX is unavailable for {story.fromCurrency}→{story.toCurrency}, so
+              we didn’t invent a 1:1 story. Try again when rates are back.
+            </p>
+          ) : (
+            <>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={story.points}>
+                    <XAxis dataKey="label" stroke="#9a968c" fontSize={11} />
+                    <YAxis stroke="#9a968c" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--color-panel, #151513)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                      }}
+                    />
+                    <Bar
+                      dataKey="dishPortions"
+                      fill="#3d9b78"
+                      radius={4}
+                      isAnimationActive={!reducedMotion}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
+              <div className="grid gap-2 sm:grid-cols-4">
+                {story.points.map((p) => (
+                  <div key={p.label} className="surface p-3 text-sm">
+                    <div className="text-xs text-muted">{p.label}</div>
+                    <div className="mt-1 font-medium tabular">
+                      {formatNumber(p.dishPortions, 2)} portions
+                    </div>
+                    <div className="text-xs tabular text-muted">
+                      rate {formatNumber(p.rate, 4)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </section>
       )}
     </main>

@@ -12,7 +12,7 @@ import type {
   SeasonalityResponse,
   SimilarCitiesResponse,
 } from "@shared/features";
-import { purchasingPowerScore } from "@shared/pulseMath";
+import { convertAmount, purchasingPowerScore } from "@shared/pulseMath";
 
 async function citiesModule() {
   return import("@shared/cities");
@@ -36,6 +36,7 @@ export async function buildClientDecide(params: {
   // Approximate if no live FX — identity-ish placeholders won't convert well;
   // use 1:1 USD cross only when currencies match, else leave rates empty so convertAmount returns amount.
   const ppIndex = purchasingPowerScore(to, rates);
+  const homePpIndex = purchasingPowerScore(from, rates);
   const tripDailyUsd = estimateTripDailyUsd({
     rentMonthlyLocal: to.localBaselinePrices.oneBedRentCenter,
     burgerLocal: to.localBaselinePrices.burgerMeal,
@@ -51,11 +52,20 @@ export async function buildClientDecide(params: {
     fxRates: rates,
   });
   const weatherComfort = weatherComfortFromTempC(20);
+  const budgetUsd = convertAmount(
+    params.budget,
+    from.currencyCode,
+    "USD",
+    rates,
+  );
   const shouldGo = shouldGoScore({
     ppIndex,
+    homePpIndex,
     fxChange30dPct: 0,
     weatherComfort,
     tripDailyUsd,
+    budgetUsd,
+    visitDays: params.days,
   });
   const relocate = relocateVsVisit({
     monthlyLocalUsd,
@@ -72,6 +82,7 @@ export async function buildClientDecide(params: {
     shouldGo,
     relocate,
     ppIndex,
+    homePpIndex,
     tripDailyUsd,
     monthlyLocalUsd,
     fxChange30dPct: null,
@@ -79,6 +90,7 @@ export async function buildClientDecide(params: {
     fromName: from.name,
     toName: to.name,
     generatedAt: new Date().toISOString(),
+    degraded: true,
   };
 }
 

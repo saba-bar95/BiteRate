@@ -64,6 +64,7 @@ export function CityPage() {
       fetchSeasonality(slug, ac.signal).catch(() => null),
     ])
       .then(([cityRes, pulse, sim, sea]) => {
+        if (ac.signal.aborted) return;
         setCity(cityRes.city);
         setCol(cityRes.col);
         setSimilar(sim);
@@ -75,7 +76,7 @@ export function CityPage() {
         );
       })
       .catch((err: unknown) => {
-        if (isAbortError(err)) return;
+        if (isAbortError(err) || ac.signal.aborted) return;
         setError(err instanceof Error ? err.message : "Failed");
       })
       .finally(() => {

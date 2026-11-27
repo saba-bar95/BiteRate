@@ -63,7 +63,7 @@ export function DecidePage() {
       <PageHeader
         eyebrow="Decide"
         title="Should you go?"
-        description="A single score from purchasing power, FX, weather, and trip cost — plus relocate vs visit break-even."
+        description="A single score from home→destination purchasing power, FX, weather, and whether your budget covers the trip — plus relocate vs visit break-even."
       />
 
       <div className="flex flex-wrap gap-1 rounded-md border border-white/10 bg-panel p-1 w-fit">
@@ -154,7 +154,14 @@ export function DecidePage() {
           className="flex min-h-[28vh] items-center justify-center text-muted"
         />
       ) : data ? (
-        <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+        <div className="space-y-4">
+          {data.degraded ? (
+            <p className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber">
+              Offline estimate — live API unreachable. Scores use local
+              baselines and may be less accurate.
+            </p>
+          ) : null}
+          <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
           <section className="bento fade-in flex flex-col items-center justify-center gap-3 p-6">
             <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden>
               <circle
@@ -273,6 +280,7 @@ export function DecidePage() {
               </Link>
             </div>
           </section>
+          </div>
         </div>
       ) : null}
     </main>

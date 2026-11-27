@@ -15,6 +15,7 @@ import { formatPct } from "../lib/format";
 import {
   fireAlertNotification,
   loadNotifyPrefs,
+  markAlertsChecked,
   requestNotifyPermission,
   saveNotifyPrefs,
   type NotifyPrefs,
@@ -71,6 +72,7 @@ export function AlertsPage() {
   } = useAsyncAction(
     async () => {
       const { alerts: checked } = await checkAlerts(alerts);
+      markAlertsChecked();
       persist(checked);
       const fired = checked.filter((a) => a.triggered);
       for (const a of fired) {
@@ -184,11 +186,16 @@ export function AlertsPage() {
         <PrimaryButton
           className="sm:col-span-2"
           onClick={() => {
+            const thresholdPct = Number(threshold);
+            if (!Number.isFinite(thresholdPct)) {
+              setToast("Enter a valid threshold %");
+              return;
+            }
             const alert: PriceAlert = {
               id: uid("alert"),
               fromCurrency,
               toCurrency,
-              thresholdPct: Number(threshold) || 0,
+              thresholdPct,
               label,
               createdAt: new Date().toISOString(),
             };

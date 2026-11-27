@@ -88,9 +88,17 @@ export function shouldAutoCheckAlerts(minIntervalMs = 15 * 60 * 1000): boolean {
   try {
     const last = Number(sessionStorage.getItem(CHECK_KEY) || 0);
     if (Date.now() - last < minIntervalMs) return false;
-    sessionStorage.setItem(CHECK_KEY, String(Date.now()));
     return true;
   } catch {
     return true;
+  }
+}
+
+/** Call only after a successful alerts check so failed attempts can retry soon. */
+export function markAlertsChecked(): void {
+  try {
+    sessionStorage.setItem(CHECK_KEY, String(Date.now()));
+  } catch {
+    // ignore
   }
 }

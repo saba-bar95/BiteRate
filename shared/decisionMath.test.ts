@@ -78,6 +78,49 @@ describe("shouldGoScore", () => {
     });
     expect(r.score).toBeLessThan(50);
   });
+
+  it("scores destination vs home purchasing power", () => {
+    const absolute = shouldGoScore({
+      ppIndex: 80,
+      fxChange30dPct: 0,
+      weatherComfort: 70,
+      tripDailyUsd: 80,
+    });
+    const relativeWeak = shouldGoScore({
+      ppIndex: 80,
+      homePpIndex: 120,
+      fxChange30dPct: 0,
+      weatherComfort: 70,
+      tripDailyUsd: 80,
+    });
+    expect(relativeWeak.score).toBeLessThan(absolute.score);
+    expect(relativeWeak.factors.find((f) => f.id === "pp")?.detail).toMatch(
+      /vs home/,
+    );
+  });
+
+  it("penalizes budgets that don't cover the trip", () => {
+    const covered = shouldGoScore({
+      ppIndex: 80,
+      fxChange30dPct: 0,
+      weatherComfort: 70,
+      tripDailyUsd: 100,
+      budgetUsd: 1000,
+      visitDays: 7,
+    });
+    const short = shouldGoScore({
+      ppIndex: 80,
+      fxChange30dPct: 0,
+      weatherComfort: 70,
+      tripDailyUsd: 100,
+      budgetUsd: 200,
+      visitDays: 7,
+    });
+    expect(short.score).toBeLessThan(covered.score);
+    expect(short.factors.find((f) => f.id === "cost")?.detail).toMatch(
+      /budget covers/,
+    );
+  });
 });
 
 describe("relocateVsVisit", () => {
@@ -242,6 +285,20 @@ describe("explain + freshness", () => {
         fxStatus: "ok",
       }).some((b) => b.id === "fx"),
     ).toBe(true);
+  });
+
+  it("flags offline estimate and degraded FX", () => {
+    const offline = freshnessMeta({ degraded: true });
+    expect(offline.some((b) => b.id === "mode" && b.tone === "warn")).toBe(
+      true,
+    );
+    const fxBad = freshnessMeta({
+      fxAsOf: new Date().toISOString(),
+      fxStatus: "degraded",
+    });
+    const fxBadge = fxBad.find((b) => b.id === "fx");
+    expect(fxBadge?.label).toBe("FX degraded");
+    expect(fxBadge?.tone).toBe("warn");
   });
 });
 

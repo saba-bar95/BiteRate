@@ -115,19 +115,41 @@ export function weatherComfortFromTempC(tempC: number | null | undefined): numbe
 
 export function shouldGoScore(input: {
   ppIndex?: number | null;
+  /** Home-city PP so the score is relative, not destination-only. */
+  homePpIndex?: number | null;
   fxChange30dPct?: number | null;
   weatherComfort?: number | null;
   tripDailyUsd?: number | null;
+  /** Trip budget in USD — when set, cost factor checks coverage vs visit length. */
+  budgetUsd?: number | null;
+  visitDays?: number | null;
 }): ShouldGoResult {
-  const pp = clamp(finite(input.ppIndex, 50), 0, 200);
+  const destPp = clamp(finite(input.ppIndex, 50), 0, 200);
+  const homePpRaw = input.homePpIndex;
+  const homePp =
+    homePpRaw == null || !Number.isFinite(Number(homePpRaw))
+      ? null
+      : clamp(finite(homePpRaw, 50), 1, 200);
+  const relativePp =
+    homePp != null ? clamp((destPp / homePp) * 100, 0, 200) : destPp;
   const fx = finite(input.fxChange30dPct, 0);
   const weather = clamp(finite(input.weatherComfort, 55), 0, 100);
   const daily = Math.max(0, finite(input.tripDailyUsd, 80));
+  const visitDays = clamp(Math.round(finite(input.visitDays, 7)), 1, 365);
+  const budgetUsd =
+    input.budgetUsd == null ? null : Math.max(0, finite(input.budgetUsd, 0));
 
-  const ppScore = clamp((pp / 100) * 70 + 15, 0, 100);
+  const ppScore = clamp((relativePp / 100) * 70 + 15, 0, 100);
   // Negative FX change = destination currency cheaper for visitor → good
   const fxScore = clamp(50 - fx * 4, 0, 100);
-  const costScore = clamp(100 - daily * 0.55, 5, 100);
+  let costScore = clamp(100 - daily * 0.55, 5, 100);
+  const tripCost = daily * visitDays;
+  let coverage: number | null = null;
+  if (budgetUsd != null && budgetUsd > 0 && tripCost > 0) {
+    coverage = budgetUsd / tripCost;
+    const budgetScore = clamp(coverage * 70, 5, 100);
+    costScore = clamp(costScore * 0.4 + budgetScore * 0.6, 5, 100);
+  }
 
   const factors: ShouldGoFactor[] = [
     {
@@ -135,7 +157,10 @@ export function shouldGoScore(input: {
       label: "Purchasing power",
       score: Math.round(ppScore),
       weight: 0.35,
-      detail: `PP index ${Math.round(pp)} vs a 100 baseline.`,
+      detail:
+        homePp != null
+          ? `Destination PP ${Math.round(destPp)} vs home ${Math.round(homePp)} (relative ${Math.round(relativePp)}).`
+          : `PP index ${Math.round(destPp)} vs a 100 baseline.`,
     },
     {
       id: "fx",
@@ -159,7 +184,10 @@ export function shouldGoScore(input: {
       label: "Daily trip cost",
       score: Math.round(costScore),
       weight: 0.2,
-      detail: `~$${Math.round(daily)}/day estimated all-in.`,
+      detail:
+        coverage != null
+          ? `~$${Math.round(daily)}/day · budget covers ~${Math.round(coverage * 100)}% of a ${visitDays}-day trip.`
+          : `~$${Math.round(daily)}/day estimated all-in.`,
     },
   ];
 
@@ -488,8 +516,19 @@ export function freshnessMeta(input: {
   colSource?: "seed" | "numbeo" | string | null;
   seedNote?: string | null;
   fxStatus?: string | null;
+  /** True when response came from client-side fallback, not the API. */
+  degraded?: boolean | null;
 }): FreshnessBadge[] {
   const badges: FreshnessBadge[] = [];
+  if (input.degraded) {
+    badges.push({
+      id: "mode",
+      label: "Offline estimate",
+      tone: "warn",
+      detail:
+        "Live API unreachable — numbers are a local estimate and may be less accurate.",
+    });
+  }
   if (input.fxAsOf) {
     const t = Date.parse(input.fxAsOf);
     const ageH = Number.isFinite(t)
@@ -497,9 +536,14 @@ export function freshnessMeta(input: {
       : Number.POSITIVE_INFINITY;
     badges.push({
       id: "fx",
-      label: Number.isFinite(ageH) && ageH < 48 ? "FX fresh" : "FX dated",
+      label:
+        input.fxStatus === "unavailable" || input.fxStatus === "degraded"
+          ? "FX degraded"
+          : Number.isFinite(ageH) && ageH < 48
+            ? "FX fresh"
+            : "FX dated",
       tone:
-        input.fxStatus === "unavailable"
+        input.fxStatus === "unavailable" || input.fxStatus === "degraded"
           ? "warn"
           : ageH < 48
             ? "ok"

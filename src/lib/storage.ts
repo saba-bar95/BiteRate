@@ -97,6 +97,15 @@ export function replaceAlerts(alerts: PriceAlert[]) {
   return write({ ...data, alerts: alerts.slice(0, 20) });
 }
 
+export function upsertTrip(trip: UserSyncPayload["trips"][number]) {
+  const data = read();
+  const trips = [trip, ...data.trips.filter((t) => t.id !== trip.id)].slice(
+    0,
+    20,
+  );
+  return write({ ...data, trips });
+}
+
 export function uid(prefix: string) {
   const rand =
     typeof crypto !== "undefined" && "randomUUID" in crypto

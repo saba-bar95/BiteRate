@@ -59,11 +59,12 @@ export function HomePage() {
     setCitiesLoading(true);
     fetchCities(ac.signal)
       .then((data) => {
+        if (ac.signal.aborted) return;
         setCitiesPayload(data);
         setCitiesLoading(false);
       })
       .catch((err: unknown) => {
-        if (isAbortError(err)) return;
+        if (isAbortError(err) || ac.signal.aborted) return;
         setError(err instanceof Error ? err.message : "Failed to load cities");
         setCitiesLoading(false);
       });
@@ -89,11 +90,12 @@ export function HomePage() {
         ac.signal,
       )
         .then((data) => {
+          if (ac.signal.aborted) return;
           setPulse(data);
           setLoading(false);
         })
         .catch((err: unknown) => {
-          if (isAbortError(err)) return;
+          if (isAbortError(err) || ac.signal.aborted) return;
           setError(
             err instanceof Error ? err.message : "Failed to load comparison",
           );
@@ -234,6 +236,7 @@ export function HomePage() {
                   fxAsOf: pulse.fx?.asOf,
                   colSource: "seed",
                   fxStatus: pulse.sourcesStatus.fx,
+                  degraded: pulse.degraded,
                   seedNote:
                     "Baselines are curated seed data enriched with live FX.",
                 })}

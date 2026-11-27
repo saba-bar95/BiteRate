@@ -19,6 +19,7 @@ import { comparePath } from "../lib/lastCompare";
 import {
   fireAlertNotification,
   loadNotifyPrefs,
+  markAlertsChecked,
   shouldAutoCheckAlerts,
 } from "../lib/notify";
 import { loadLocalSync, replaceAlerts } from "../lib/storage";
@@ -92,6 +93,7 @@ export function AppShell() {
     if (!alerts.length) return;
     void checkAlerts(alerts)
       .then(({ alerts: checked }) => {
+        markAlertsChecked();
         replaceAlerts(checked);
         for (const a of checked) {
           if (a.triggered) {
@@ -103,7 +105,7 @@ export function AppShell() {
         }
       })
       .catch(() => {
-        // quiet fail on shell mount
+        // quiet fail on shell mount — do not mark checked so we can retry sooner
       });
   }, []);
 
@@ -111,13 +113,23 @@ export function AppShell() {
     <div className="min-h-screen">
       <div className="border-b border-white/8 bg-obsidian/95 no-print">
         <div className="page-shell mx-auto flex max-w-7xl flex-col items-center gap-2.5 !py-3 sm:flex-row sm:gap-3">
-          <NavLink
-            to={comparePath()}
-            className="flex shrink-0 items-center gap-2.5 text-ink"
-          >
-            <Globe2 className="h-5 w-5 shrink-0 text-emerald" />
-            <span className="brand-mark">BiteRate</span>
-          </NavLink>
+          <div className="flex shrink-0 items-center gap-2">
+            <NavLink
+              to={comparePath()}
+              className="flex items-center gap-2.5 text-ink"
+            >
+              <Globe2 className="h-5 w-5 shrink-0 text-emerald" />
+              <span className="brand-mark">BiteRate</span>
+            </NavLink>
+            {import.meta.env.DEV ? (
+              <span
+                className="rounded border border-amber/35 bg-amber/10 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-amber uppercase"
+                title="Local Vite + in-process /api — not the Vercel deploy"
+              >
+                Local
+              </span>
+            ) : null}
+          </div>
           <nav
             aria-label="Main"
             className="flex max-w-full flex-1 flex-wrap items-center justify-center gap-0.5 sm:justify-end"

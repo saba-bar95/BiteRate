@@ -127,7 +127,8 @@ export async function fetchPulse(
     if (isAbortError(err)) throw err;
   }
   const { buildClientPulse } = await import("./clientPulse");
-  return buildClientPulse(params);
+  const pulse = await buildClientPulse(params);
+  return { ...pulse, degraded: true };
 }
 
 export async function fetchCity(slug: string, signal?: AbortSignal) {
@@ -286,7 +287,7 @@ export async function fetchDecide(
     months: params.months ?? 1,
   });
   if (!fallback) throw new ApiError("Unable to build decision", 500);
-  return fallback;
+  return { ...fallback, degraded: true };
 }
 
 export async function fetchSimilarCities(

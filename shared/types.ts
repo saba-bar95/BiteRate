@@ -144,6 +144,8 @@ export interface PulseResponse {
   };
   sourcesStatus: SourcesStatus;
   generatedAt: string;
+  /** True when built client-side because /api/pulse was unreachable. */
+  degraded?: boolean;
 }
 
 export interface CitiesListResponse {
